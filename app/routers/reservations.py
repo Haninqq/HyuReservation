@@ -200,13 +200,14 @@ async def list_my_reservations(
     db: AsyncSession = Depends(get_db),
 ):
     now = datetime.now()
+    # end_time > now: 진행 중·예정 예약만 (시작했어도 아직 끝나지 않았으면 표시)
     result = await db.execute(
         select(Reservation, Room)
         .join(Room, Reservation.room_id == Room.id)
         .where(
             Reservation.user_id == user.id,
             Reservation.status == ReservationStatus.confirmed,
-            Reservation.start_time >= now,
+            Reservation.end_time > now,
         )
         .order_by(Reservation.start_time)
     )

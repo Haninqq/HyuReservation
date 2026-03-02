@@ -302,7 +302,9 @@
                     btn.type = 'button';
                     let baseClass = 'btn btn-outline-secondary slot-btn';
                     let text = start;
-                    if (s.mine) {
+                    // occupied && !occupied_by_others => 내 예약 (mine 우선, 한도 초과 회색 로직에 덮이지 않도록)
+                    const isMine = s.mine || (s.occupied && !s.occupied_by_others);
+                    if (isMine) {
                         baseClass += ' slot-mine pe-none';
                         text = start + ' · 나의 예약';
                     } else if (s.occupied_by_others) {
@@ -318,7 +320,7 @@
                     btn.dataset.start = s.start;
                     btn.dataset.end = s.end;
                     btn.dataset.available = s.available ? '1' : '0';
-                    btn.dataset.mine = s.mine ? '1' : '0';
+                    btn.dataset.mine = isMine ? '1' : '0';
                     btn.dataset.occupiedByOthers = s.occupied_by_others ? '1' : '0';
                     if (s.available) btn.onclick = () => onSlotClick(idx);
                     grid.appendChild(btn);
