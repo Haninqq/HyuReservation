@@ -200,12 +200,10 @@ async def create_reservation(
     )
 
 
-def _compute_cancel_flags(r: Reservation, now: datetime, slot_mins: int) -> tuple[bool, bool]:
-    """첫 슬롯 end 기준: 취소 가능 여부, 중도 퇴실 가능 여부."""
-    first_slot_end = r.start_time + timedelta(minutes=slot_mins)
-    cancelable = now < first_slot_end
-    # 중도 퇴실: 첫 슬롯 지났고, 예약 종료 전인 진행 중 예약
-    can_early_checkout = (now >= first_slot_end) and (r.start_time <= now < r.end_time)
+def _compute_cancel_flags(r: Reservation, now: datetime) -> tuple[bool, bool]:
+    """취소: 예약 시작 전만. 퇴실: 예약 시작 후 진행 중일 때."""
+    cancelable = now < r.start_time
+    can_early_checkout = r.start_time <= now < r.end_time
     return cancelable, can_early_checkout
 
 
@@ -215,7 +213,6 @@ async def list_my_reservations(
     db: AsyncSession = Depends(get_db),
 ):
     now = datetime.now()
-    slot_mins = await get_slot_duration(db)
     # end_time > now: 진행 중·예정 예약만 (시작했어도 아직 끝나지 않았으면 표시)
     result = await db.execute(
         select(Reservation, Room)
@@ -240,7 +237,7 @@ async def list_my_reservations(
             can_early_checkout=can_early_checkout,
         )
         for r, room in rows
-        for cancelable, can_early_checkout in [_compute_cancel_flags(r, now, slot_mins)]
+        for cancelable, can_early_checkout in [_compute_cancel_flags(r, now)]
     ]
 
 
@@ -251,7 +248,6 @@ async def cancel_reservation(
     db: AsyncSession = Depends(get_db),
 ):
     now = datetime.now()
-    slot_mins = await get_slot_duration(db)
     result = await db.execute(
         select(Reservation).where(
             Reservation.id == reservation_id,
@@ -263,8 +259,7 @@ async def cancel_reservation(
         raise HTTPException(status_code=404, detail="예약을 찾을 수 없습니다.")
     if r.status != ReservationStatus.confirmed:
         raise HTTPException(status_code=400, detail="이미 처리된 예약입니다.")
-    first_slot_end = r.start_time + timedelta(minutes=slot_mins)
-    if now >= first_slot_end:
+    if now >= r.start_time:
         raise HTTPException(status_code=400, detail="취소할 수 없습니다.")
     r.status = ReservationStatus.cancelled
     await db.commit()
@@ -293,12 +288,8 @@ async def early_checkout(
     r, room = row
     if r.status != ReservationStatus.confirmed:
         raise HTTPException(status_code=400, detail="이미 처리된 예약입니다.")
-    first_slot_end = r.start_time + timedelta(minutes=slot_mins)
-    if now < first_slot_end:
-        raise HTTPException(
-            status_code=400,
-            detail="첫 번째 슬롯이 지나야 중도 퇴실할 수 있습니다.",
-        )
+    if now < r.start_time:
+        raise HTTPException(status_code=400, detail="예약 시작 전에는 퇴실할 수 없습니다.")
     if now >= r.end_time:
         raise HTTPException(status_code=400, detail="이미 종료된 예약입니다.")
     # 사용 시간(한도): 올림 처리. 공실(room): 실제 퇴실 시각으로 즉시 해제
@@ -310,7 +301,7 @@ async def early_checkout(
     r.billed_end_time = billed_end  # 한도는 20:30까지로 차감
     await db.commit()
     await db.refresh(r)
-    cancelable, can_early_checkout = _compute_cancel_flags(r, datetime.now(), slot_mins)
+    cancelable, can_early_checkout = _compute_cancel_flags(r, datetime.now())
     return ReservationOut(
         id=r.id,
         room_id=r.room_id,
