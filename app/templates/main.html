@@ -477,6 +477,14 @@
                                 const startT = formatResTime(r.start_time);
                                 const endT = formatResTime(r.end_time);
                                 const hrs = getDurationHours(r.start_time, r.end_time);
+                                const cancelable = r.cancelable !== false;
+                                const canEarlyCheckout = r.can_early_checkout === true;
+                                let actionBtn = '';
+                                if (cancelable) {
+                                    actionBtn = '<button class="btn btn-outline-danger btn-sm cancel-btn" data-id="' + r.id + '">취소</button>';
+                                } else if (canEarlyCheckout) {
+                                    actionBtn = '<button class="btn btn-outline-primary btn-sm early-checkout-btn" data-id="' + r.id + '">퇴실</button>';
+                                }
                                 return `
                                 <div class="res-card p-3 d-flex justify-content-between align-items-center">
                                     <div>
@@ -484,7 +492,7 @@
                                         <span class="text-muted small ms-1">${startT} ~ ${endT}</span>
                                         <span class="badge ms-1" style="background: var(--hy-blue-soft); color: var(--hy-blue);">${hrs}시간</span>
                                     </div>
-                                    <button class="btn btn-outline-danger btn-sm cancel-btn" data-id="${r.id}">취소</button>
+                                    ${actionBtn ? '<div class="d-flex gap-1">' + actionBtn + '</div>' : ''}
                                 </div>
                                 `;
                             }).join('')}
@@ -495,6 +503,11 @@
                 el.querySelectorAll('.cancel-btn').forEach(btn => btn.addEventListener('click', async () => {
                     if (!confirm('예약을 취소하시겠습니까?')) return;
                     await api('/api/reservations/' + btn.dataset.id, { method: 'DELETE' });
+                    loadMyReservations(); loadSlots(); loadRemaining();
+                }));
+                el.querySelectorAll('.early-checkout-btn').forEach(btn => btn.addEventListener('click', async () => {
+                    if (!confirm('중도 퇴실하시겠습니까? 사용한 시간은 슬롯 단위로 올림 처리됩니다.')) return;
+                    await api('/api/reservations/' + btn.dataset.id + '/early-checkout', { method: 'POST' });
                     loadMyReservations(); loadSlots(); loadRemaining();
                 }));
             }

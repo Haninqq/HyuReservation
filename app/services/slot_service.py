@@ -93,9 +93,9 @@ async def get_available_slots(
     )
     mine_ranges = [(r.start_time, r.end_time) for r in user_room_result.all()]
 
-    # user의 해당 날짜 전체 예약 시간 합계 (한도 계산용)
+    # user의 해당 날짜 전체 예약 시간 합계 (한도 계산용, 중도 퇴실 시 billed_end_time 사용)
     user_result = await db.execute(
-        select(Reservation.start_time, Reservation.end_time).where(
+        select(Reservation.start_time, Reservation.end_time, Reservation.billed_end_time).where(
             and_(
                 Reservation.user_id == user_id,
                 Reservation.status == ReservationStatus.confirmed,
@@ -105,7 +105,7 @@ async def get_available_slots(
         )
     )
     user_hours = sum(
-        (r.end_time - r.start_time).total_seconds() / 3600
+        ((r.billed_end_time or r.end_time) - r.start_time).total_seconds() / 3600
         for r in user_result.all()
     )
 
@@ -142,12 +142,12 @@ async def get_available_slots(
 async def get_user_remaining_hours(
     db: AsyncSession, user_id: int, target_date: date
 ) -> float:
-    """해당 날짜에 user가 추가로 예약 가능한 시간(시간 단위)."""
+    """해당 날짜에 user가 추가로 예약 가능한 시간(시간 단위). 중도 퇴실 시 billed_end_time 사용."""
     max_hours = await get_max_hours_per_day(db)
     day_start = datetime.combine(target_date, time(0, 0))
     day_end = datetime.combine(target_date, time(23, 59, 59))
     result = await db.execute(
-        select(Reservation.start_time, Reservation.end_time).where(
+        select(Reservation.start_time, Reservation.end_time, Reservation.billed_end_time).where(
             and_(
                 Reservation.user_id == user_id,
                 Reservation.status == ReservationStatus.confirmed,
@@ -157,7 +157,7 @@ async def get_user_remaining_hours(
         )
     )
     used = sum(
-        (r.end_time - r.start_time).total_seconds() / 3600
+        ((r.billed_end_time or r.end_time) - r.start_time).total_seconds() / 3600
         for r in result.all()
     )
     return max(0, max_hours - used)

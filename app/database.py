@@ -21,6 +21,20 @@ async def init_db():
     import app.models  # noqa: F401 - register models with Base.metadata
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # billed_end_time 컬럼 추가 (기존 DB 마이그레이션)
+        await conn.run_sync(_add_billed_end_time_if_missing)
 
     from app.seed import seed_db
     await seed_db()
+
+
+def _add_billed_end_time_if_missing(conn):
+    """reservations 테이블에 billed_end_time 컬럼이 없으면 추가."""
+    from sqlalchemy import text
+    try:
+        r = conn.execute(text("PRAGMA table_info(reservations)"))
+        cols = [row[1] for row in r.fetchall()]
+        if "billed_end_time" not in cols:
+            conn.execute(text("ALTER TABLE reservations ADD COLUMN billed_end_time DATETIME"))
+    except Exception:
+        pass  # 테이블 없으면 스킵
