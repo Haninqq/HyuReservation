@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>스터디룸 예약 - 한양대학교</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+    <style>
+        :root {
+            --hy-blue: #1D2475;
+            --hy-blue-light: #2d3585;
+            --hy-blue-soft: rgba(29, 36, 117, 0.08);
+            --hy-gray: #3F3D42;
+            --hy-gray-light: #6B6B70;
+            --bs-primary: #1D2475;
+            --bs-primary-rgb: 29, 36, 117;
+        }
+        * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        body { background: #f5f6fa; }
+
+        .navbar-main {
+            background: linear-gradient(90deg, var(--hy-blue) 0%, #252d7a 100%) !important;
+            box-shadow: 0 2px 12px rgba(29, 36, 117, 0.15);
+        }
+        .navbar-main .navbar-brand { color: #fff !important; font-weight: 700; }
+        .navbar-main .text-user { color: rgba(255,255,255,0.9); font-size: 0.9rem; }
+        .navbar-main .btn-outline-light:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+        main { padding-top: 2rem; padding-bottom: 3rem; }
+        .section-title { font-weight: 600; color: var(--hy-gray); margin-bottom: 1.25rem; }
+        .form-label { color: var(--hy-gray-light); font-weight: 500; }
+
+        #roomBar button, #dateBar button {
+            border-radius: 12px;
+            padding: 8px 16px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        #roomBar button:hover, #dateBar button:hover {
+            transform: translateY(-1px);
+        }
+        #roomBar, #dateBar {
+            padding: 6px 0 4px 0;
+            scroll-behavior: smooth;
+        }
+        #roomBar .btn-primary, #dateBar .btn-primary {
+            background: var(--hy-blue);
+            border-color: var(--hy-blue);
+        }
+        #roomBar .btn-outline-primary, #dateBar .btn-outline-primary {
+            color: var(--hy-blue);
+            border-color: #d0d3e8;
+        }
+        #roomBar .btn-outline-primary:hover, #dateBar .btn-outline-primary:hover {
+            background: var(--hy-blue-soft);
+            border-color: var(--hy-blue);
+        }
+
+        .slot-btn {
+            border-radius: 10px !important;
+            padding: 10px 16px !important;
+            font-weight: 500;
+            transition: all 0.2s ease !important;
+        }
+        .slot-btn:hover:not(.pe-none) { transform: translateY(-1px); }
+        .slot-btn.btn-primary { background: var(--hy-blue) !important; border-color: var(--hy-blue) !important; }
+        .slot-btn.btn-outline-secondary { background: #fff; border: 1px solid #c9d4f1; }
+        .slot-btn.slot-mine { background: rgba(34, 197, 94, 0.2) !important; border-color: rgba(34, 197, 94, 0.5) !important; color: #166534; cursor: default; }
+        .slot-btn.slot-others { background: rgba(239, 68, 68, 0.15) !important; border-color: rgba(239, 68, 68, 0.4) !important; color: #991b1b; cursor: default; }
+        .slot-btn.slot-limit { background: #ebeef2 !important; border-color: #adb5bd !important; color: #495057; cursor: not-allowed; opacity: 0.9; }
+
+        #doReserveBtn {
+            border-radius: 14px;
+            padding: 12px 28px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        #doReserveBtn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(29, 36, 117, 0.3); }
+
+        .my-reservations .res-card {
+            border: 1px solid #e8eaef;
+            border-radius: 14px;
+            transition: all 0.2s ease;
+        }
+        .my-reservations .res-card:hover {
+            box-shadow: 0 4px 16px rgba(29, 36, 117, 0.08);
+        }
+        .my-reservations .res-room { font-weight: 600; color: var(--hy-blue); }
+        .my-reservations .res-empty {
+            color: var(--hy-gray-light);
+            padding: 2rem;
+            text-align: center;
+            border: 2px dashed #e0e2eb;
+            border-radius: 14px;
+            background: #fafbfc;
+        }
+
+        .modal-content { border-radius: 20px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
+        .modal-header { border-bottom: 1px solid #eee; }
+        .modal-footer .btn { border-radius: 12px; padding: 10px 20px; transition: all 0.2s ease; }
+
+        .offcanvas { border-radius: 16px 0 0 16px; box-shadow: -4px 0 24px rgba(0,0,0,0.08); }
+        .offcanvas .nav-tabs .nav-link { border-radius: 10px 10px 0 0; transition: color 0.2s ease; }
+        .cancel-btn { border-radius: 10px; transition: all 0.2s ease; }
+        #roomBar::-webkit-scrollbar, #dateBar::-webkit-scrollbar { height: 6px; }
+        #roomBar::-webkit-scrollbar-thumb, #dateBar::-webkit-scrollbar-thumb { background: #d0d3e8; border-radius: 3px; }
+        #roomBar::-webkit-scrollbar-track, #dateBar::-webkit-scrollbar-track { background: #f0f1f5; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-main">
+        <div class="container">
+            <a class="navbar-brand" href="/main">스터디룸 예약</a>
+            <div class="d-flex align-items-center">
+                {% if user.role.value in ['admin', 'super_admin'] %}
+                <button class="btn btn-outline-light btn-sm me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#adminPanel">관리자</button>
+                {% endif %}
+                <span class="text-user me-3">{{ user.name }} ({{ user.dept }})</span>
+                <a href="/logout" class="btn btn-outline-light btn-sm">로그아웃</a>
+            </div>
+        </div>
+    </nav>
+    <main class="container">
+        <div class="main-card rounded-4 p-4 p-md-5 mb-4" style="background: #fff; box-shadow: 0 2px 16px rgba(0,0,0,0.06);">
+            <h5 class="section-title">예약하기</h5>
+            <div class="mb-2">
+            <label class="form-label small">방 선택</label>
+            <div id="roomBar" class="d-flex overflow-auto gap-2 pb-2" style="min-height: 44px;"></div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label small">날짜 선택</label>
+            <div id="dateBar" class="d-flex overflow-auto gap-2 pb-2" style="min-height: 60px;"></div>
+        </div>
+        <p class="small text-muted mb-2" id="remainingHours">남은 예약 가능 시간: -</p>
+        <div class="mb-3">
+            <label class="form-label small">시간 선택 (시작~끝 선택, 최대 3시간)</label>
+            <div id="slotGrid" class="d-flex flex-wrap gap-2"></div>
+            <p id="slotEmpty" class="text-muted small mt-2" style="display:none;">해당 날짜는 예약할 수 없습니다.</p>
+            <div id="reserveBtnArea" class="mt-2" style="display:none;">
+                <button type="button" class="btn btn-primary" id="doReserveBtn">예약하기</button>
+            </div>
+        </div>
+        </div>
+        <div class="main-card rounded-4 p-4 p-md-5" style="background: #fff; box-shadow: 0 2px 16px rgba(0,0,0,0.06);">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h6 class="section-title mb-0">내 예약</h6>
+                <span class="badge rounded-pill px-3 py-2" style="background: var(--hy-blue-soft); color: var(--hy-blue);" id="myResCount">0건</span>
+            </div>
+            <div id="myReservations" class="my-reservations"></div>
+        </div>
+    </main>
+
+    <!-- 예약 확인 모달 -->
+    <div class="modal fade" id="confirmModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">예약 확인</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="confirmModalBody"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" id="confirmBtn">예약하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function(){
+            let rooms = [], selectedDate = '', selectedRoomId = 0, pendingSlot = null;
+            let appConfig = { max_advance_days: 7, exclude_weekends: true, exclude_holidays: true, holidays: [] };
+            const DAYS = ['일','월','화','수','목','금','토'];
+
+            async function api(path, opts = {}) {
+                const r = await fetch(path, { credentials: 'include', ...opts });
+                if (r.status === 401) { window.location = '/login'; return null; }
+                if (r.status === 403) { alert('권한이 없습니다.'); return null; }
+                if (!r.ok) { try { const e = await r.json(); alert(e.detail || '오류'); } catch(_){ alert('오류'); } return null; }
+                return r.status === 204 ? null : r.json();
+            }
+
+            function toLocalDateStr(d) {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            }
+            function todayStr() { return toLocalDateStr(new Date()); }
+            function dateStr(d) { return toLocalDateStr(d); }
+
+            function scrollToCenter(container, element) {
+                const targetLeft = Math.max(0, element.offsetLeft - (container.clientWidth / 2) + (element.offsetWidth / 2));
+                const startLeft = container.scrollLeft;
+                const distance = targetLeft - startLeft;
+                const duration = 420;
+                const startTime = performance.now();
+                function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+                function step(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    container.scrollLeft = startLeft + distance * easeOutCubic(progress);
+                    if (progress < 1) requestAnimationFrame(step);
+                }
+                requestAnimationFrame(step);
+            }
+
+            function selectRoom(id, clickedEl) {
+                selectedRoomId = id;
+                const bar = document.getElementById('roomBar');
+                bar.querySelectorAll('button').forEach(b => {
+                    const isSelected = +b.dataset.roomId === id;
+                    b.classList.toggle('btn-primary', isSelected);
+                    b.classList.toggle('btn-outline-primary', !isSelected);
+                });
+                if (clickedEl) scrollToCenter(bar, clickedEl);
+                if (selectedDate) loadSlots();
+                loadRemaining();
+            }
+
+            async function loadRooms() {
+                const data = await api('/api/rooms');
+                if (!data || !data.length) return;
+                rooms = data;
+                const bar = document.getElementById('roomBar');
+                bar.innerHTML = '';
+                data.forEach((r, i) => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = i === 0 ? 'btn btn-primary btn-sm flex-shrink-0 px-3' : 'btn btn-outline-primary btn-sm flex-shrink-0 px-3';
+                    btn.textContent = r.name;
+                    btn.dataset.roomId = r.id;
+                    btn.onclick = (e) => selectRoom(r.id, e.currentTarget);
+                    bar.appendChild(btn);
+                });
+                selectedRoomId = data[0].id;
+                selectedDate && loadSlots();
+                loadRemaining();
+            }
+
+            function buildDateBar() {
+                const today = new Date();
+                const bar = document.getElementById('dateBar');
+                bar.innerHTML = '';
+                const maxDays = appConfig.max_advance_days || 7;
+                const excludeWknd = appConfig.exclude_weekends !== false;
+                const excludeHol = appConfig.exclude_holidays !== false;
+                const holidaysSet = new Set(appConfig.holidays || []);
+                let firstAdded = true;
+                for (let i = 0; i < maxDays; i++) {
+                    const d = new Date(today);
+                    d.setDate(today.getDate() + i);
+                    if (excludeWknd && (d.getDay() === 0 || d.getDay() === 6)) continue;
+                    const ds = dateStr(d);
+                    if (excludeHol && holidaysSet.has(ds)) continue;
+                    const month = d.getMonth() + 1;
+                    const dayNum = d.getDate();
+                    const dayName = DAYS[d.getDay()];
+                    const label = `${month} . ${dayNum} (${dayName})`;
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-outline-primary btn-sm flex-shrink-0 px-3';
+                    btn.textContent = label;
+                    btn.dataset.date = ds;
+                    if (firstAdded) {
+                        selectedDate = ds;
+                        btn.classList.remove('btn-outline-primary');
+                        btn.classList.add('btn-primary');
+                        firstAdded = false;
+                    }
+                    btn.onclick = () => {
+                        bar.querySelectorAll('button').forEach(b => { b.classList.remove('btn-primary'); b.classList.add('btn-outline-primary'); });
+                        btn.classList.remove('btn-outline-primary'); btn.classList.add('btn-primary');
+                        selectedDate = ds;
+                        scrollToCenter(bar, btn);
+                        loadSlots(); loadRemaining(); loadMyReservations();
+                    };
+                    bar.appendChild(btn);
+                }
+            }
+
+            let selectedStartIdx = -1, selectedEndIdx = -1, slotsData = [];
+            const MAX_SLOTS = 6;
+
+            async function loadSlots() {
+                selectedStartIdx = -1; selectedEndIdx = -1;
+                document.getElementById('reserveBtnArea').style.display = 'none';
+                if (!selectedDate || !selectedRoomId) return;
+                const data = await api(`/api/slots?date=${selectedDate}&room_id=${selectedRoomId}`);
+                const grid = document.getElementById('slotGrid');
+                const empty = document.getElementById('slotEmpty');
+                if (!data || !data.length) { slotsData = []; grid.innerHTML = ''; empty.style.display = 'block'; return; }
+                slotsData = data;
+                empty.style.display = 'none';
+                grid.innerHTML = '';
+                data.forEach((s, idx) => {
+                    const start = s.start.slice(11,16);
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    let baseClass = 'btn btn-outline-secondary slot-btn';
+                    let text = start;
+                    if (s.mine) {
+                        baseClass += ' slot-mine pe-none';
+                        text = start + ' · 나의 예약';
+                    } else if (s.occupied_by_others) {
+                        baseClass += ' slot-others pe-none';
+                        text = start;
+                    } else if (!s.available) {
+                        baseClass += ' slot-limit pe-none';
+                        text = start;
+                    }
+                    btn.className = baseClass;
+                    btn.textContent = text;
+                    btn.dataset.idx = idx;
+                    btn.dataset.start = s.start;
+                    btn.dataset.end = s.end;
+                    btn.dataset.available = s.available ? '1' : '0';
+                    btn.dataset.mine = s.mine ? '1' : '0';
+                    btn.dataset.occupiedByOthers = s.occupied_by_others ? '1' : '0';
+                    if (s.available) btn.onclick = () => onSlotClick(idx);
+                    grid.appendChild(btn);
+                });
+            }
+
+            function updateSlotStyles() {
+                const grid = document.getElementById('slotGrid');
+                grid.querySelectorAll('.slot-btn').forEach((btn, idx) => {
+                    const avail = btn.dataset.available === '1';
+                    const mine = btn.dataset.mine === '1';
+                    const others = btn.dataset.occupiedByOthers === '1';
+                    btn.classList.remove('btn-primary', 'btn-outline-primary', 'btn-secondary', 'btn-outline-secondary', 'opacity-50', 'pe-none', 'slot-mine', 'slot-others', 'slot-limit');
+                    const timeStr = btn.dataset.start?.slice(11,16) || '';
+                    if (mine) {
+                        btn.classList.add('slot-mine', 'pe-none');
+                        btn.textContent = timeStr + ' · 나의 예약';
+                        return;
+                    }
+                    if (others) {
+                        btn.classList.add('slot-others', 'pe-none');
+                        btn.textContent = timeStr;
+                        return;
+                    }
+                    if (!avail) {
+                        btn.classList.add('slot-limit', 'pe-none');
+                        btn.textContent = timeStr;
+                        return;
+                    }
+                    if (selectedStartIdx >= 0 && selectedEndIdx >= 0) {
+                        const lo = Math.min(selectedStartIdx, selectedEndIdx);
+                        const hi = Math.max(selectedStartIdx, selectedEndIdx);
+                        if (idx >= lo && idx <= hi) {
+                            btn.classList.add('btn-primary');
+                        } else {
+                            btn.classList.add('btn-outline-secondary');
+                        }
+                    } else if (selectedStartIdx >= 0 && idx === selectedStartIdx) {
+                        btn.classList.add('btn-primary');
+                    } else {
+                        btn.classList.add('btn-outline-secondary');
+                    }
+                    btn.textContent = timeStr;
+                });
+            }
+
+            function onSlotClick(idx) {
+                const grid = document.getElementById('slotGrid');
+                if (slotsData[idx] && !slotsData[idx].available) return;
+                if (selectedStartIdx < 0) {
+                    selectedStartIdx = idx;
+                    selectedEndIdx = -1;
+                } else {
+                    const start = selectedStartIdx, end = idx;
+                    if (end < start) {
+                        selectedStartIdx = idx;
+                        selectedEndIdx = -1;
+                    } else if (end === start) {
+                        selectedEndIdx = idx;
+                    } else if (end - start + 1 > MAX_SLOTS) {
+                        selectedStartIdx = idx;
+                        selectedEndIdx = -1;
+                    } else {
+                        const allAvail = Array.from({length: end-start+1}, (_,i)=>slotsData[start+i].available).every(Boolean);
+                        if (allAvail) selectedEndIdx = idx;
+                        else { selectedStartIdx = idx; selectedEndIdx = -1; }
+                    }
+                }
+                updateSlotStyles();
+                const area = document.getElementById('reserveBtnArea');
+                if (selectedStartIdx >= 0 && selectedEndIdx >= 0) {
+                    area.style.display = 'block';
+                } else {
+                    area.style.display = 'none';
+                }
+            }
+
+            async function loadRemaining() {
+                if (!selectedDate) return;
+                const data = await api(`/api/slots/remaining?date=${selectedDate}`);
+                const el = document.getElementById('remainingHours');
+                const text = data ? `남은 예약 가능 시간: ${data.remaining_hours}시간` : '남은 예약 가능 시간: -';
+                el.textContent = text;
+                const isZero = data && (data.remaining_hours === 0 || parseFloat(data.remaining_hours) <= 0);
+                if (isZero) {
+                    el.style.setProperty('color', '#dc3545', 'important');
+                    el.style.setProperty('font-weight', '600', 'important');
+                } else {
+                    el.style.removeProperty('color');
+                    el.style.removeProperty('font-weight');
+                }
+            }
+
+            document.getElementById('doReserveBtn').onclick = () => {
+                if (selectedStartIdx < 0 || selectedEndIdx < 0 || !slotsData.length) return;
+                const lo = Math.min(selectedStartIdx, selectedEndIdx);
+                const hi = Math.max(selectedStartIdx, selectedEndIdx);
+                pendingSlot = { start: slotsData[lo].start, end: slotsData[hi].end };
+                const room = rooms.find(r => r.id === selectedRoomId);
+                document.getElementById('confirmModalBody').innerHTML =
+                    `<p>${room?.name || ''} / ${selectedDate}</p><p>${pendingSlot.start.slice(11,16)} ~ ${pendingSlot.end.slice(11,16)}</p><p class="text-muted small">예약하시겠습니까?</p>`;
+                new bootstrap.Modal(document.getElementById('confirmModal')).show();
+            };
+
+            document.getElementById('confirmBtn').onclick = async () => {
+                if (!pendingSlot) return;
+                const body = { room_id: selectedRoomId, start_time: pendingSlot.start, end_time: pendingSlot.end };
+                const res = await api('/api/reservations', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+                bootstrap.Modal.getInstance(document.getElementById('confirmModal')).hide();
+                pendingSlot = null;
+                if (res) {
+                    selectedStartIdx = -1; selectedEndIdx = -1;
+                    document.getElementById('reserveBtnArea').style.display = 'none';
+                    loadSlots(); loadRemaining(); loadMyReservations();
+                }
+            };
+
+            function formatResDate(iso) {
+                const d = new Date(iso);
+                const m = d.getMonth() + 1, day = d.getDate(), w = DAYS[d.getDay()];
+                return `${m}월 ${day}일 (${w})`;
+            }
+            function formatResTime(iso) { return iso.slice(11, 16); }
+            function getDurationHours(startIso, endIso) {
+                const a = new Date(startIso), b = new Date(endIso);
+                return ((b - a) / 3600000).toFixed(1);
+            }
+
+            async function loadMyReservations() {
+                const data = await api('/api/reservations/mine');
+                const el = document.getElementById('myReservations');
+                const countEl = document.getElementById('myResCount');
+                if (!data || !data.length) {
+                    el.innerHTML = '<div class="res-empty"><span class="small">예약한 스터디룸이 없습니다.</span></span></div>';
+                    if (countEl) countEl.textContent = '0건';
+                    return;
+                }
+                if (countEl) countEl.textContent = data.length + '건';
+                const byDate = {};
+                data.forEach(r => {
+                    const dt = r.start_time.slice(0, 10);
+                    if (!byDate[dt]) byDate[dt] = [];
+                    byDate[dt].push(r);
+                });
+                const dates = Object.keys(byDate).sort();
+                el.innerHTML = dates.map(dt => {
+                    const items = byDate[dt];
+                    const dateLabel = formatResDate(items[0].start_time);
+                    return `
+                    <div class="mb-3">
+                        <div class="small text-muted mb-1">${dateLabel}</div>
+                        <div class="d-flex flex-column gap-2">
+                            ${items.map(r => {
+                                const startT = formatResTime(r.start_time);
+                                const endT = formatResTime(r.end_time);
+                                const hrs = getDurationHours(r.start_time, r.end_time);
+                                return `
+                                <div class="res-card p-3 d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="res-room">${r.room_name}</span>
+                                        <span class="text-muted small ms-1">${startT} ~ ${endT}</span>
+                                        <span class="badge ms-1" style="background: var(--hy-blue-soft); color: var(--hy-blue);">${hrs}시간</span>
+                                    </div>
+                                    <button class="btn btn-outline-danger btn-sm cancel-btn" data-id="${r.id}">취소</button>
+                                </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+                el.querySelectorAll('.cancel-btn').forEach(btn => btn.addEventListener('click', async () => {
+                    if (!confirm('예약을 취소하시겠습니까?')) return;
+                    await api('/api/reservations/' + btn.dataset.id, { method: 'DELETE' });
+                    loadMyReservations(); loadSlots(); loadRemaining();
+                }));
+            }
+
+            document.addEventListener('DOMContentLoaded', async () => {
+                const confirmModal = document.getElementById('confirmModal');
+                if (confirmModal) {
+                    confirmModal.addEventListener('hide.bs.modal', function() {
+                        if (document.activeElement && this.contains(document.activeElement)) {
+                            document.activeElement.blur();
+                        }
+                    });
+                }
+                const cfg = await api('/api/config');
+                if (cfg) {
+                    appConfig.max_advance_days = cfg.max_advance_days ?? 7;
+                    appConfig.exclude_weekends = cfg.exclude_weekends !== false;
+                    appConfig.exclude_holidays = cfg.exclude_holidays !== false;
+                    appConfig.holidays = cfg.holidays || [];
+                }
+                buildDateBar();
+                await loadRooms();
+                if (!selectedDate) selectedDate = todayStr();
+                await loadSlots();
+                await loadRemaining();
+                await loadMyReservations();
+            });
+        })();
+    </script>
+
+    {% if user.role.value in ['admin', 'super_admin'] %}
+    <!-- 관리자 패널 -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="adminPanel" style="width: 450px;">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title">관리자</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body overflow-auto">
+            <ul class="nav nav-tabs mb-3" role="tablist">
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabConfig">설정</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabReservations">예약현황</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabUsers">사용자</a></li>
+            </ul>
+            <div class="tab-content">
+                <div class="tab-pane active" id="tabConfig">
+                    <div id="configForm"></div>
+                    <button class="btn btn-primary btn-sm mt-2" onclick="saveConfig()">저장</button>
+                </div>
+                <div class="tab-pane" id="tabReservations">
+                    <div class="mb-2">
+                        <input type="date" id="reservDate" class="form-control form-control-sm mb-2">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="loadReservations()">조회</button>
+                    </div>
+                    <div id="reservationsList" class="small"></div>
+                </div>
+                <div class="tab-pane" id="tabUsers">
+                    <div id="usersList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const isSuperAdmin = {{ 'true' if user.role.value == 'super_admin' else 'false' }};
+        const currentUserId = {{ user.id }};
+        let configData = {};
+
+        document.querySelector('#adminPanel').addEventListener('show.bs.offcanvas', () => {
+            loadConfig();
+            const rd = document.getElementById('reservDate');
+            if (rd) {
+                const n = new Date();
+                rd.value = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
+            }
+        });
+        document.querySelector('a[href="#tabReservations"]').addEventListener('shown.bs.tab', loadReservations);
+        document.querySelector('a[href="#tabUsers"]').addEventListener('shown.bs.tab', loadUsers);
+
+        async function api(path, opts = {}) {
+            const r = await fetch(path, { credentials: 'include', ...opts });
+            if (r.status === 401) { window.location = '/login'; return null; }
+            if (r.status === 403) { alert('권한이 없습니다.'); return null; }
+            if (!r.ok) { const e = await r.json(); alert(e.detail || '오류'); return null; }
+            return r.status === 204 ? null : r.json();
+        }
+
+        async function loadConfig() {
+            const data = await api('/api/admin/config');
+            if (!data) return;
+            configData = Object.fromEntries(data.map(c => [c.key, c.value]));
+            let oh = {};
+            try { oh = JSON.parse(configData.operating_hours || '{}'); } catch(_) {}
+            const openVal = oh.open || '09:00';
+            const closeVal = oh.close || '24:00';
+            const hourOpts = Array.from({length: 25}, (_, i) => {
+                const h = String(i).padStart(2,'0') + ':00';
+                return `<option value="${h}" ${openVal===h?'selected':''}>${h}</option>`;
+            }).join('');
+            const closeOpts = Array.from({length: 25}, (_, i) => {
+                const h = String(i).padStart(2,'0') + ':00';
+                return `<option value="${h}" ${closeVal===h?'selected':''}>${h}</option>`;
+            }).join('');
+            const esc = v => String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const exWknd = ['true','1','yes'].includes((configData.exclude_weekends || 'true').toLowerCase());
+            const exHol = ['true','1','yes'].includes((configData.exclude_holidays || 'true').toLowerCase());
+            const slotVal = esc(configData.slot_duration) || '30';
+            document.getElementById('configForm').innerHTML = `
+                <div class="mb-2">
+                    <label class="form-label small">슬롯 단위(분)</label>
+                    <select class="form-select form-select-sm" id="cfg_slot_duration" style="max-width:120px">
+                        <option value="30" ${slotVal==='30'?'selected':''}>30분</option>
+                        <option value="60" ${slotVal==='60'?'selected':''}>60분</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">인당 일일 최대(시간)</label>
+                    <input type="number" class="form-control form-control-sm" id="cfg_max_hours_per_day" value="${esc(configData.max_hours_per_day) || '3'}" min="1" max="12">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">운영시간</label>
+                    <div class="d-flex gap-2 align-items-center">
+                        <select class="form-select form-select-sm" id="cfg_operating_open" style="width:90px">${hourOpts}</select>
+                        <span>~</span>
+                        <select class="form-select form-select-sm" id="cfg_operating_close" style="width:90px">${closeOpts}</select>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">주말 제외</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="cfg_exclude_weekends" ${exWknd?'checked':''}>
+                        <label class="form-check-label" for="cfg_exclude_weekends">ON: 주말 제외</label>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">공휴일 제외</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="cfg_exclude_holidays" ${exHol?'checked':''}>
+                        <label class="form-check-label" for="cfg_exclude_holidays">ON: 공휴일 제외</label>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">예약 가능 최대 일수</label>
+                    <input type="number" class="form-control form-control-sm" id="cfg_max_advance_days" value="${esc(configData.max_advance_days) || '7'}" min="1" max="30">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small">공휴일 목록(JSON 배열)</label>
+                    <input type="text" class="form-control form-control-sm" id="cfg_holidays_json" value="${esc(configData.holidays_json) || '[]'}" placeholder='["2025-01-01","2025-12-25"]'>
+                </div>
+            `;
+        }
+
+        async function saveConfig() {
+            const cfg = {};
+            const slotSel = document.getElementById('cfg_slot_duration');
+            if (slotSel) cfg.slot_duration = slotSel.value;
+            document.querySelectorAll('#configForm input[type="number"], #configForm input[type="text"]').forEach(inp => {
+                const k = inp.id.replace('cfg_','');
+                if (k !== 'operating_open' && k !== 'operating_close' && k !== 'slot_duration') cfg[k] = inp.value;
+            });
+            const openSel = document.getElementById('cfg_operating_open');
+            const closeSel = document.getElementById('cfg_operating_close');
+            if (openSel && closeSel) {
+                cfg.operating_hours = JSON.stringify({ open: openSel.value, close: closeSel.value });
+            }
+            document.querySelectorAll('#configForm input[type="checkbox"]').forEach(inp => {
+                const k = inp.id.replace('cfg_','');
+                cfg[k] = inp.checked ? 'true' : 'false';
+            });
+            const res = await api('/api/admin/config', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({config: cfg}) });
+            if (res) { alert('저장되었습니다.'); location.reload(); }
+        }
+
+        async function loadReservations() {
+            const d = document.getElementById('reservDate').value;
+            const q = d ? `?date=${d}` : '';
+            const data = await api('/api/admin/reservations' + q);
+            if (!data) return;
+            const el = document.getElementById('reservationsList');
+            el.innerHTML = data.length === 0 ? '<p class="text-muted">예약 없음</p>' :
+                '<table class="table table-sm"><tr><th>시간</th><th>방</th><th>예약자</th><th></th></tr>' +
+                data.map(r => `<tr><td>${r.start_time.slice(0,16)}</td><td>${r.room_name}</td><td>${r.user_name}</td><td><button class="btn btn-outline-danger btn-sm cancel-reservation-btn" data-id="${r.id}">취소</button></td></tr>`).join('') + '</table>';
+            el.querySelectorAll('.cancel-reservation-btn').forEach(btn => btn.addEventListener('click', async () => {
+                if (!confirm('이 예약을 취소하시겠습니까?')) return;
+                await api('/api/admin/reservations/' + btn.dataset.id, { method: 'DELETE' });
+                loadReservations();
+            }));
+        }
+
+        async function loadUsers() {
+            const data = await api('/api/admin/users');
+            if (!data) return;
+            document.getElementById('usersList').innerHTML = '<table class="table table-sm"><tr><th>이름</th><th>학과</th><th>역할</th><th></th></tr>' +
+                data.map(u => `
+                    <tr>
+                        <td>${u.name || '-'}</td>
+                        <td>${u.dept || '-'}</td>
+                        <td>${u.role}</td>
+                        <td>${isSuperAdmin ? `<select class="form-select form-select-sm" style="width:auto" onchange="updateRole(${u.id},this.value)"><option ${u.role==='user'?'selected':''}>user</option><option ${u.role==='admin'?'selected':''}>admin</option><option ${u.role==='super_admin'?'selected':''}>super_admin</option></select>` : ''}
+                    </tr>
+                `).join('') + '</table>';
+        }
+
+        async function updateRole(userId, role) {
+            if (isSuperAdmin && userId === currentUserId) {
+                if (!confirm('자신의 권한을 변경하면 관리자 접근 권한을 잃을 수 있습니다. 계속하시겠습니까?')) return;
+            }
+            await api(`/api/admin/users/${userId}/role`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({role}) });
+            loadUsers();
+        }
+    </script>
+    {% endif %}
+</body>
+</html>

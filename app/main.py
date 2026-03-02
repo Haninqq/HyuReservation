@@ -1,0 +1,35 @@
+from contextlib import asynccontextmanager
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import HTMLResponse
+from starlette.middleware.sessions import SessionMiddleware
+
+from app.config import get_settings
+from app.database import init_db
+from app.dependencies import get_current_user
+from app.models import User
+from app.routers import admin, auth, reservations
+from app.templating import templates
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+
+app = FastAPI(title="스터디룸 예약 시스템", lifespan=lifespan)
+app.add_middleware(SessionMiddleware, secret_key=get_settings().secret_key)
+
+app.include_router(auth.router)
+app.include_router(admin.router)  # /api/admin/* 먼저 등록 (더 구체적 경로)
+app.include_router(reservations.router)
+
+
+@app.get("/")
+async def root():
+    return {"message": "RSV Study Room Reservation"}
+
+
+@app.get("/main", response_class=HTMLResponse)
+async def main_page(request: Request, user: User = Depends(get_current_user)):
+    return templates.TemplateResponse("main.html", {"request": request, "user": user})
