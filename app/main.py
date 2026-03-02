@@ -31,5 +31,7 @@ async def root():
 
 
 @app.get("/main", response_class=HTMLResponse)
-async def main_page(request: Request, user: User = Depends(get_current_user)):
-    return templates.TemplateResponse("main.html", {"request": request, "user": user})
+async def main_page(request: Request, user_or_redirect=Depends(get_current_user)):
+    if isinstance(user_or_redirect, RedirectResponse):
+        return user_or_redirect
+    return templates.TemplateResponse("main.html", {"request": request, "user": user_or_redirect})
