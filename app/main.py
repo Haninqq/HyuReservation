@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
@@ -27,7 +27,7 @@ app.include_router(reservations.router)
 
 @app.get("/")
 async def root():
-    return {"message": "RSV Study Room Reservation"}
+    return RedirectResponse(url="/login", status_code=302)
 
 
 @app.get("/main", response_class=HTMLResponse)

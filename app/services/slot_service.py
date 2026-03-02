@@ -93,6 +93,20 @@ async def get_available_slots(
     )
     mine_ranges = [(r.start_time, r.end_time) for r in user_room_result.all()]
 
+    # user의 해당 날짜·다른 방 예약 (동시간 예약 불가이므로 슬롯 비가능 처리)
+    user_other_room_result = await db.execute(
+        select(Reservation.start_time, Reservation.end_time).where(
+            and_(
+                Reservation.user_id == user_id,
+                Reservation.room_id != room_id,
+                Reservation.status == ReservationStatus.confirmed,
+                Reservation.start_time >= day_start,
+                Reservation.end_time <= day_end + timedelta(seconds=1),
+            )
+        )
+    )
+    user_other_room_ranges = [(r.start_time, r.end_time) for r in user_other_room_result.all()]
+
     # user의 해당 날짜 전체 예약 시간 합계 (한도 계산용, 중도 퇴실 시 billed_end_time 사용)
     user_result = await db.execute(
         select(Reservation.start_time, Reservation.end_time, Reservation.billed_end_time).where(
@@ -125,8 +139,12 @@ async def get_available_slots(
             slot["start"] < r_end and slot["end"] > r_start
             for r_start, r_end in mine_ranges
         )
+        conflict_other_room = any(
+            slot["start"] < r_end and slot["end"] > r_start
+            for r_start, r_end in user_other_room_ranges
+        )
         occupied_by_others = occupied and not mine
-        available = not occupied and can_book_more
+        available = not occupied and can_book_more and not conflict_other_room
         out.append({
             "start": slot["start"].isoformat(),
             "end": slot["end"].isoformat(),

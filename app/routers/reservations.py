@@ -165,13 +165,12 @@ async def create_reservation(
     if not slot_available:
         raise HTTPException(status_code=400, detail="해당 시간은 예약할 수 없습니다.")
 
-    # 중복 예약 체크 (같은 user, 같은 방, 같은 시간대)
+    # 중복 예약 체크 (같은 user, 같은 시간대 - 다른 방이어도 1인 1예약)
     from sqlalchemy import and_
     overlap = await db.execute(
         select(Reservation).where(
             and_(
                 Reservation.user_id == user.id,
-                Reservation.room_id == body.room_id,
                 Reservation.status == ReservationStatus.confirmed,
                 Reservation.start_time < end_dt,
                 Reservation.end_time > start_dt,
@@ -179,7 +178,7 @@ async def create_reservation(
         )
     )
     if overlap.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="해당 시간에 이미 예약이 있습니다.")
+        raise HTTPException(status_code=400, detail="해당 시간에 이미 다른 예약이 있습니다.")
 
     r = Reservation(
         user_id=user.id,
