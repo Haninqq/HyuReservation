@@ -23,6 +23,8 @@ async def login_page(request: Request):
 
 @router.get("/auth/google")
 async def auth_google(request: Request):
+    is_graduate = request.query_params.get("is_graduate") in ("1", "on", "true")
+    request.session["pending_is_graduate"] = is_graduate
     redirect_uri = get_settings().google_redirect_uri
     # prompt=select_account: 매번 계정 선택 화면 표시 → 학교 메일로 로그인 선택 가능
     return await oauth.google.authorize_redirect(request, redirect_uri, prompt="select_account")
@@ -51,10 +53,13 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
     result = await db.execute(select(User).where(User.google_sub == google_sub))
     user = result.scalar_one_or_none()
+    is_graduate = request.session.pop("pending_is_graduate", False)
+
     if user:
         user.name = name
         user.dept = dept
         user.email = email
+        user.is_graduate = is_graduate
     else:
         role = UserRole.super_admin
         count_result = await db.execute(select(User))
@@ -66,6 +71,7 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
             dept=dept,
             google_sub=google_sub,
             role=role,
+            is_graduate=is_graduate,
         )
         db.add(user)
 

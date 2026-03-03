@@ -40,11 +40,16 @@ class UserAdminOut(BaseModel):
     name: str
     dept: str
     role: str
+    is_graduate: bool
     created_at: str
 
 
 class UserRoleUpdate(BaseModel):
     role: str
+
+
+class GraduateUpdate(BaseModel):
+    is_graduate: bool
 
 
 # --- Routes ---
@@ -191,10 +196,27 @@ async def list_users(
             name=u.name,
             dept=u.dept,
             role=u.role.value,
+            is_graduate=bool(u.is_graduate),
             created_at=u.created_at.isoformat() if u.created_at else "",
         )
         for u in users
     ]
+
+
+@router.patch("/users/{user_id}/graduate")
+async def update_user_graduate(
+    user_id: int,
+    body: GraduateUpdate,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_graduate = body.is_graduate
+    await db.commit()
+    return {"ok": True, "is_graduate": body.is_graduate}
 
 
 @router.patch("/users/{user_id}/role")

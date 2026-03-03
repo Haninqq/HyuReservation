@@ -1,4 +1,4 @@
-from sqlalchemy import String, DateTime, Enum
+from sqlalchemy import Boolean, String, DateTime, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 import enum
@@ -23,6 +23,7 @@ class User(Base):
         Enum(UserRole), nullable=False, default=UserRole.user
     )
     google_sub: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    is_graduate: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     reservations: Mapped[list["Reservation"]] = relationship("Reservation", back_populates="user")

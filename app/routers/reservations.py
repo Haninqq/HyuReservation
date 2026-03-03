@@ -84,8 +84,15 @@ async def get_public_config(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/rooms", response_model=list[RoomOut])
-async def list_rooms(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Room).where(Room.is_active == True).order_by(Room.id))
+async def list_rooms(
+    user: User = Depends(get_current_user_api),
+    db: AsyncSession = Depends(get_db),
+):
+    q = select(Room).where(Room.is_active == True)
+    if user.is_graduate:
+        q = q.where(Room.name.contains("DCELL"))
+    q = q.order_by(Room.id)
+    result = await db.execute(q)
     return [RoomOut(id=r.id, name=r.name) for r in result.scalars().all()]
 
 
@@ -141,6 +148,8 @@ async def create_reservation(
     room = room_result.scalar_one_or_none()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
+    if user.is_graduate and "DCELL" not in room.name:
+        raise HTTPException(status_code=403, detail="대학원생은 DCELL만 예약 가능합니다.")
 
     # max_advance_days 확인
     max_adv = await get_max_advance_days(db)

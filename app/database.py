@@ -23,6 +23,8 @@ async def init_db():
         await conn.run_sync(Base.metadata.create_all)
         # billed_end_time 컬럼 추가 (기존 DB 마이그레이션)
         await conn.run_sync(_add_billed_end_time_if_missing)
+        # users.is_graduate 컬럼 추가
+        await conn.run_sync(_add_is_graduate_if_missing)
 
     from app.seed import seed_db
     await seed_db()
@@ -38,3 +40,15 @@ def _add_billed_end_time_if_missing(conn):
             conn.execute(text("ALTER TABLE reservations ADD COLUMN billed_end_time DATETIME"))
     except Exception:
         pass  # 테이블 없으면 스킵
+
+
+def _add_is_graduate_if_missing(conn):
+    """users 테이블에 is_graduate 컬럼이 없으면 추가."""
+    from sqlalchemy import text
+    try:
+        r = conn.execute(text("PRAGMA table_info(users)"))
+        cols = [row[1] for row in r.fetchall()]
+        if "is_graduate" not in cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN is_graduate BOOLEAN DEFAULT 0"))
+    except Exception:
+        pass
