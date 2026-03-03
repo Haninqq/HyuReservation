@@ -59,7 +59,7 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         user.name = name
         user.dept = dept
         user.email = email
-        user.is_graduate = is_graduate
+        # 기존 사용자는 is_graduate를 덮어쓰지 않음 (첫 로그인 시에만 반영)
     else:
         role = UserRole.super_admin
         count_result = await db.execute(select(User))
