@@ -59,7 +59,7 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         await db.commit()
         await db.refresh(user)
         request.session["user_id"] = user.id
-        return RedirectResponse(url="/main", status_code=302)
+        return RedirectResponse(url="/initial_setup", status_code=302)
 
     # 신규 사용자: 가입 정보를 세션에 저장 후 initial_setup으로 리다이렉트
     request.session["pending_signup"] = {
