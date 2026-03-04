@@ -59,7 +59,7 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
         await db.commit()
         await db.refresh(user)
         request.session["user_id"] = user.id
-        return RedirectResponse(url="/initial_setup", status_code=302)
+        return RedirectResponse(url="/main", status_code=302)
 
     # 신규 사용자: 가입 정보를 세션에 저장 후 initial_setup으로 리다이렉트
     request.session["pending_signup"] = {
@@ -73,8 +73,6 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
 @router.get("/initial_setup", response_class=HTMLResponse)
 async def initial_setup_page(request: Request):
-    if "user_id" in request.session:
-        return RedirectResponse(url="/main", status_code=302)
     if "pending_signup" not in request.session:
         return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse(
@@ -92,15 +90,13 @@ async def complete_setup(
     if not pending:
         return RedirectResponse(url="/login", status_code=302)
 
-    is_graduate = (
-        (await request.form()).get("is_graduate") in ("1", "on", "true")
-    )
+    form_data = await request.form()
+    is_graduate = form_data.get("is_graduate") in ("1", "true")
 
     role = UserRole.super_admin
     count_result = await db.execute(select(User))
     if count_result.scalars().all():
         role = UserRole.user
-
     user = User(
         email=pending["email"],
         name=pending["name"],
@@ -112,7 +108,6 @@ async def complete_setup(
     db.add(user)
     await db.commit()
     await db.refresh(user)
-
     request.session["user_id"] = user.id
     return RedirectResponse(url="/main", status_code=302)
 
