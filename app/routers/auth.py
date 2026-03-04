@@ -23,8 +23,6 @@ async def login_page(request: Request):
 
 @router.get("/auth/google")
 async def auth_google(request: Request):
-    is_graduate = request.query_params.get("is_graduate") in ("1", "on", "true")
-    request.session["pending_is_graduate"] = is_graduate
     redirect_uri = get_settings().google_redirect_uri
     # prompt=select_account: 매번 계정 선택 화면 표시 → 학교 메일로 로그인 선택 가능
     return await oauth.google.authorize_redirect(request, redirect_uri, prompt="select_account")
@@ -53,28 +51,65 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
     result = await db.execute(select(User).where(User.google_sub == google_sub))
     user = result.scalar_one_or_none()
-    is_graduate = request.session.pop("pending_is_graduate", False)
 
     if user:
         user.name = name
         user.dept = dept
         user.email = email
-        # 기존 사용자는 is_graduate를 덮어쓰지 않음 (첫 로그인 시에만 반영)
-    else:
-        role = UserRole.super_admin
-        count_result = await db.execute(select(User))
-        if count_result.scalars().all():
-            role = UserRole.user
-        user = User(
-            email=email,
-            name=name,
-            dept=dept,
-            google_sub=google_sub,
-            role=role,
-            is_graduate=is_graduate,
-        )
-        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        request.session["user_id"] = user.id
+        return RedirectResponse(url="/main", status_code=302)
 
+    # 신규 사용자: 가입 정보를 세션에 저장 후 initial_setup으로 리다이렉트
+    request.session["pending_signup"] = {
+        "email": email,
+        "name": name,
+        "dept": dept,
+        "google_sub": google_sub,
+    }
+    return RedirectResponse(url="/initial_setup", status_code=302)
+
+
+@router.get("/initial_setup", response_class=HTMLResponse)
+async def initial_setup_page(request: Request):
+    if "user_id" in request.session:
+        return RedirectResponse(url="/main", status_code=302)
+    if "pending_signup" not in request.session:
+        return RedirectResponse(url="/login", status_code=302)
+    return templates.TemplateResponse(
+        "initial_setup.html",
+        {"request": request},
+    )
+
+
+@router.post("/auth/complete_setup")
+async def complete_setup(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    pending = request.session.pop("pending_signup", None)
+    if not pending:
+        return RedirectResponse(url="/login", status_code=302)
+
+    is_graduate = (
+        (await request.form()).get("is_graduate") in ("1", "on", "true")
+    )
+
+    role = UserRole.super_admin
+    count_result = await db.execute(select(User))
+    if count_result.scalars().all():
+        role = UserRole.user
+
+    user = User(
+        email=pending["email"],
+        name=pending["name"],
+        dept=pending["dept"],
+        google_sub=pending["google_sub"],
+        role=role,
+        is_graduate=is_graduate,
+    )
+    db.add(user)
     await db.commit()
     await db.refresh(user)
 
