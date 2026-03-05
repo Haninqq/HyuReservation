@@ -11,6 +11,8 @@ from app.services.config_service import (
     get_slot_duration,
     get_max_hours_per_day,
     get_holidays,
+    get_exam_period,
+    get_exam_max_hours_per_day,
 )
 
 
@@ -29,12 +31,20 @@ async def get_available_slots(
     """
     해당 날짜·방의 슬롯 목록. 각 슬롯: {start, end, available: bool}
     """
+    exam_period = await get_exam_period(db)
     open_s, close_s = await get_operating_hours(db)
     slot_mins = await get_slot_duration(db)
     exclude_wknd = await get_exclude_weekends(db)
     exclude_hol = await get_exclude_holidays(db)
     holidays = await get_holidays(db)
     max_hours = await get_max_hours_per_day(db)
+
+    # 시험 기간: 주말·공휴일 포함, 24시간 운영
+    if exam_period:
+        exclude_wknd = False
+        exclude_hol = False
+        open_s, close_s = "00:00", "24:00"
+        max_hours = await get_exam_max_hours_per_day(db)
 
     # 주말 제외
     if exclude_wknd and target_date.weekday() >= 5:
@@ -161,7 +171,10 @@ async def get_user_remaining_hours(
     db: AsyncSession, user_id: int, target_date: date
 ) -> float:
     """해당 날짜에 user가 추가로 예약 가능한 시간(시간 단위). 중도 퇴실 시 billed_end_time 사용."""
+    exam_period = await get_exam_period(db)
     max_hours = await get_max_hours_per_day(db)
+    if exam_period:
+        max_hours = await get_exam_max_hours_per_day(db)
     day_start = datetime.combine(target_date, time(0, 0))
     day_end = datetime.combine(target_date, time(23, 59, 59))
     result = await db.execute(

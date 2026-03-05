@@ -11,6 +11,8 @@ DEFAULT_CONFIG = {
     "operating_hours": json.dumps({"open": "09:00", "close": "24:00"}),
     "exclude_weekends": "true",
     "exclude_holidays": "true",
+    "exam_period": "false",
+    "exam_max_hours_per_day": "3",
     "max_advance_days": "7",
     "holidays_json": json.dumps([
         "2025-01-01",

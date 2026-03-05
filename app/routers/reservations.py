@@ -1,9 +1,9 @@
 """예약 API."""
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, time
 import math
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -17,6 +17,8 @@ from app.services.config_service import (
     get_exclude_holidays,
     get_holidays,
     get_slot_duration,
+    get_exam_period,
+    get_exam_max_hours_per_day,
 )
 from app.services.slot_service import get_available_slots, get_user_remaining_hours
 
@@ -65,6 +67,7 @@ class ReservationOut(BaseModel):
 @router.get("/config")
 async def get_public_config(db: AsyncSession = Depends(get_db)):
     """main 페이지용 설정 (인증 불필요)."""
+    exam_period = await get_exam_period(db)
     max_adv = await get_max_advance_days(db)
     exclude_wknd = await get_exclude_weekends(db)
     exclude_hol = await get_exclude_holidays(db)
@@ -72,7 +75,11 @@ async def get_public_config(db: AsyncSession = Depends(get_db)):
     max_hours = await get_max_hours_per_day(db)
     slot_duration = await get_slot_duration(db)
     open_t, close_t = await get_operating_hours(db)
+    if exam_period:
+        open_t, close_t = "00:00", "24:00"
+        exclude_wknd = exclude_hol = False
     return {
+        "exam_period": exam_period,
         "max_advance_days": max_adv,
         "exclude_weekends": exclude_wknd,
         "exclude_holidays": exclude_hol,
@@ -153,22 +160,93 @@ async def create_reservation(
 
     # max_advance_days 확인
     max_adv = await get_max_advance_days(db)
-    from datetime import date, timedelta
     today = date.today()
     if start_dt.date() > today + timedelta(days=max_adv):
         raise HTTPException(status_code=400, detail=f"예약은 {max_adv}일 이내만 가능합니다.")
 
-    # 인당 일일 제한
-    remaining = await get_user_remaining_hours(db, user.id, start_dt.date())
-    slot_hours = (end_dt - start_dt).total_seconds() / 3600
-    if slot_hours > remaining:
-        raise HTTPException(status_code=400, detail="일일 예약 가능 시간을 초과했습니다.")
+    exam_period = await get_exam_period(db)
+    if exam_period:
+        # 시험 기간 룰: 09~24 최대 3h, 00~09 최대 2h, 연속 3h 초과 불가
+        hours_09_24 = 0.0
+        hours_00_09 = 0.0
+        cur = start_dt
+        while cur < end_dt:
+            day_start = datetime.combine(cur.date(), time(0, 0))
+            day_09 = datetime.combine(cur.date(), time(9, 0))
+            day_end = datetime.combine(cur.date(), time(23, 59, 59)) + timedelta(seconds=1)
+            if cur.time() < time(9, 0):
+                seg_end = min(day_09, end_dt)
+                hours_00_09 += (seg_end - cur).total_seconds() / 3600
+                cur = seg_end
+            else:
+                seg_end = min(day_end, end_dt)
+                hours_09_24 += (seg_end - cur).total_seconds() / 3600
+                cur = seg_end
+        if hours_09_24 > 3:
+            raise HTTPException(status_code=400, detail="09:00~24:00 구간은 최대 3시간까지 예약 가능합니다.")
+        if hours_00_09 > 2:
+            raise HTTPException(status_code=400, detail="00:00~09:00 구간은 최대 2시간까지 예약 가능합니다.")
+        # 2) 연속 3h 초과 체크: 접촉/중첩 예약과 합쳐 연속 블록이 3h 이하여야 함
+        one_min = timedelta(minutes=1)
+        touching = await db.execute(
+            select(Reservation).where(
+                Reservation.user_id == user.id,
+                Reservation.status == ReservationStatus.confirmed,
+                or_(
+                    and_(Reservation.end_time >= start_dt - one_min, Reservation.end_time <= start_dt + one_min),
+                    and_(Reservation.start_time >= end_dt - one_min, Reservation.start_time <= end_dt + one_min),
+                    and_(Reservation.start_time < end_dt, Reservation.end_time > start_dt),
+                ),
+            )
+        )
+        blocks = [(r.start_time, r.billed_end_time or r.end_time) for r in touching.scalars().all()]
+        blocks.append((start_dt, end_dt))
+        blocks.sort(key=lambda b: b[0])
+        merged = []
+        for bs, be in blocks:
+            if merged and (bs - merged[-1][1]).total_seconds() <= 60:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], be))
+            else:
+                merged.append((bs, be))
+        for bs, be in merged:
+            if (be - bs).total_seconds() / 3600 > 3:
+                raise HTTPException(status_code=400, detail="연속 3시간을 초과하여 예약할 수 없습니다.")
+        # 3) 시험 기간 일일 총합: 각 해당 날짜의 remaining >= 새 예약의 해당일 시간
+        cur = start_dt
+        while cur < end_dt:
+            d = cur.date()
+            day_end = datetime.combine(d, time(23, 59, 59)) + timedelta(seconds=1)
+            seg_end = min(day_end, end_dt)
+            new_hours_on_date = (seg_end - cur).total_seconds() / 3600
+            remaining = await get_user_remaining_hours(db, user.id, d)
+            if new_hours_on_date > remaining:
+                exam_max = await get_exam_max_hours_per_day(db)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"시험 기간 일일 예약 한도({exam_max}시간)를 초과합니다.",
+                )
+            cur = seg_end
+    else:
+        # 일반: 인당 일일 제한
+        remaining = await get_user_remaining_hours(db, user.id, start_dt.date())
+        slot_hours = (end_dt - start_dt).total_seconds() / 3600
+        if slot_hours > remaining:
+            raise HTTPException(status_code=400, detail="일일 예약 가능 시간을 초과했습니다.")
 
     # 슬롯이 예약 가능한지 확인 (범위 전체가 available이어야 함)
-    slots = await get_available_slots(db, start_dt.date(), body.room_id, user.id)
+    dates_to_check = [start_dt.date()]
+    if end_dt.date() != start_dt.date():
+        d = start_dt.date()
+        while d + timedelta(days=1) <= end_dt.date():
+            d += timedelta(days=1)
+            dates_to_check.append(d)
+    all_slots = []
+    for d in dates_to_check:
+        all_slots.extend(await get_available_slots(db, d, body.room_id, user.id))
     overlapping = [
-        s for s in slots
-        if datetime.fromisoformat(s["start"]) < end_dt and datetime.fromisoformat(s["end"]) > start_dt
+        s for s in all_slots
+        if datetime.fromisoformat(s["start"].replace("Z", "+00:00")) < end_dt
+        and datetime.fromisoformat(s["end"].replace("Z", "+00:00")) > start_dt
     ]
     slot_available = overlapping and all(s["available"] for s in overlapping)
     if not slot_available:

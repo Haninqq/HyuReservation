@@ -13,6 +13,8 @@ DEFAULTS = {
     "exclude_holidays": True,
     "max_advance_days": 7,
     "holidays_json": "[]",
+    "exam_period": False,
+    "exam_max_hours_per_day": 3,
 }
 
 
@@ -84,3 +86,17 @@ async def get_holidays(db: AsyncSession) -> set[str]:
         return set(arr) if isinstance(arr, list) else set()
     except (json.JSONDecodeError, TypeError):
         return set()
+
+
+async def get_exam_period(db: AsyncSession) -> bool:
+    v = await get_config(db, "exam_period")
+    return v.lower() in ("true", "1", "yes") if v else False
+
+
+async def get_exam_max_hours_per_day(db: AsyncSession) -> int:
+    """시험 기간 중 인당 일일 최대 시간. 시험 기간 아닐 때는 사용하지 않음."""
+    v = await get_config(db, "exam_max_hours_per_day")
+    try:
+        return int(v) if v else 3
+    except ValueError:
+        return 3
