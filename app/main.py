@@ -1,6 +1,7 @@
+import traceback
 from contextlib import asynccontextmanager
-from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
@@ -18,6 +19,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="스터디룸 예약 시스템", lifespan=lifespan)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """500 에러 시 traceback 로깅. HTTPException은 FastAPI 기본 처리 유지."""
+    if isinstance(exc, HTTPException):
+        raise exc
+    tb = traceback.format_exc()
+    print(f"[500] {request.method} {request.url.path}\n{tb}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc) or "서버 오류가 발생했습니다."},
+    )
 app.add_middleware(SessionMiddleware, secret_key=get_settings().secret_key)
 
 app.include_router(auth.router)

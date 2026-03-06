@@ -22,7 +22,8 @@ async def get_config(db: AsyncSession, key: str) -> str:
     result = await db.execute(select(SystemConfig).where(SystemConfig.key == key))
     row = result.scalar_one_or_none()
     if row:
-        return row.value
+        val = row.value
+        return str(val) if val is not None else ""
     default = DEFAULTS.get(key)
     if default is not None:
         if isinstance(default, bool):
@@ -71,12 +72,12 @@ async def get_operating_hours(db: AsyncSession) -> tuple[str, str]:
 
 async def get_exclude_weekends(db: AsyncSession) -> bool:
     v = await get_config(db, "exclude_weekends")
-    return v.lower() in ("true", "1", "yes") if v else True
+    return str(v).lower() in ("true", "1", "yes") if v else True
 
 
 async def get_exclude_holidays(db: AsyncSession) -> bool:
     v = await get_config(db, "exclude_holidays")
-    return v.lower() in ("true", "1", "yes") if v else True
+    return str(v).lower() in ("true", "1", "yes") if v else True
 
 
 async def get_holidays(db: AsyncSession) -> set[str]:
@@ -90,13 +91,13 @@ async def get_holidays(db: AsyncSession) -> set[str]:
 
 async def get_exam_period(db: AsyncSession) -> bool:
     v = await get_config(db, "exam_period")
-    return v.lower() in ("true", "1", "yes") if v else False
+    return str(v).lower() in ("true", "1", "yes") if v else False
 
 
 async def get_exam_max_hours_per_day(db: AsyncSession) -> int:
     """시험 기간 중 인당 일일 최대 시간. 시험 기간 아닐 때는 사용하지 않음."""
     v = await get_config(db, "exam_max_hours_per_day")
     try:
-        return int(v) if v else 3
-    except ValueError:
+        return int(float(v)) if v else 3
+    except (ValueError, TypeError):
         return 3
