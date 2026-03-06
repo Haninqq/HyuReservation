@@ -620,13 +620,24 @@
                     <label class="form-label small">시험 기간</label>
                     <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="cfg_exam_period" ${examPeriod?'checked':''}>
-                        <label class="form-check-label" for="cfg_exam_period">ON: 24시간 운영, 09~24시 최대 3h / 00~09시 최대 2h, 연속 3h 제한</label>
+                        <label class="form-check-label" for="cfg_exam_period">ON: 시험 기간 모드</label>
+                        <span id="examPeriodInfo" class="ms-1 text-muted" style="cursor:help" title="24시간 운영(주말·공휴일 포함). 09~24시 구간 최대 3시간, 00~09시 구간 최대 2시간 예약 가능. 연속·일일 최대 ${examMaxHours}시간. 아래에서 조정 가능.">ⓘ</span>
                     </div>
                 </div>
                 <div class="mb-2">
                     <label class="form-label small">시험 기간 중 일일 최대(시간)</label>
                     <input type="number" class="form-control form-control-sm" id="cfg_exam_max_hours_per_day" value="${examMaxHours}" min="1" max="12" placeholder="3">
                 </div>
+            `;
+            const examInfoIcon = document.getElementById('examPeriodInfo');
+            const examMaxInput = document.getElementById('cfg_exam_max_hours_per_day');
+            function updateExamTooltip() {
+                const h = examMaxInput ? examMaxInput.value || '3' : '3';
+                if (examInfoIcon) examInfoIcon.title = `24시간 운영(주말·공휴일 포함). 09~24시 최대 3h / 00~09시 최대 2h. 연속·일일 최대 ${h}시간.`;
+            }
+            updateExamTooltip();
+            if (examMaxInput) examMaxInput.addEventListener('input', updateExamTooltip);
+            document.getElementById('configForm').innerHTML += `
                 <div class="mb-2">
                     <label class="form-label small">슬롯 단위(분)</label>
                     <select class="form-select form-select-sm" id="cfg_slot_duration" style="max-width:120px">

@@ -208,9 +208,13 @@ async def create_reservation(
                 merged[-1] = (merged[-1][0], max(merged[-1][1], be))
             else:
                 merged.append((bs, be))
+        exam_max = await get_exam_max_hours_per_day(db)
         for bs, be in merged:
-            if (be - bs).total_seconds() / 3600 > 3:
-                raise HTTPException(status_code=400, detail="연속 3시간을 초과하여 예약할 수 없습니다.")
+            if (be - bs).total_seconds() / 3600 > exam_max:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"연속 {exam_max}시간을 초과하여 예약할 수 없습니다.",
+                )
         # 3) 시험 기간 일일 총합: 각 해당 날짜의 remaining >= 새 예약의 해당일 시간
         cur = start_dt
         while cur < end_dt:
@@ -253,7 +257,6 @@ async def create_reservation(
         raise HTTPException(status_code=400, detail="해당 시간은 예약할 수 없습니다.")
 
     # 중복 예약 체크 (같은 user, 같은 시간대 - 다른 방이어도 1인 1예약)
-    from sqlalchemy import and_
     overlap = await db.execute(
         select(Reservation).where(
             and_(

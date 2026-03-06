@@ -40,8 +40,11 @@ app.include_router(reservations.router)
 
 
 @app.get("/")
-async def root():
-    return RedirectResponse(url="/login", status_code=302)
+async def root(user_or_redirect=Depends(get_current_user)):
+    """로그인 시 /main, 미로그인 시 /login으로 리다이렉트."""
+    if isinstance(user_or_redirect, RedirectResponse):
+        return RedirectResponse(url="/login", status_code=302)
+    return RedirectResponse(url="/main", status_code=302)
 
 
 @app.get("/main", response_class=HTMLResponse)
