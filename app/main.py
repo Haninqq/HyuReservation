@@ -1,8 +1,11 @@
 import traceback
 from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import init_db
@@ -37,6 +40,10 @@ app.add_middleware(SessionMiddleware, secret_key=get_settings().secret_key)
 app.include_router(auth.router)
 app.include_router(admin.router)  # /api/admin/* 먼저 등록 (더 구체적 경로)
 app.include_router(reservations.router)
+
+# 정적 파일 (favicon 등)
+static_dir = Path(__file__).resolve().parent / "static"
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 @app.get("/")
