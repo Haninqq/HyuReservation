@@ -2,8 +2,9 @@ import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.staticfiles import StaticFiles
 
@@ -33,6 +34,13 @@ def _format_http_detail(detail) -> str:
     return str(detail)
 
 
+def _error_mascot_src(status_code: int) -> str:
+    """404일 때만 404.jpg, 그 외는 기본 히나리 이미지."""
+    if status_code == 404:
+        return "/static/404.jpg"
+    return "/static/error_hinari.png"
+
+
 def _error_title(status_code: int) -> str:
     return {
         400: "이건 뭔가 잘못됐어요",
@@ -55,8 +63,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="스터디룸 예약 시스템", lifespan=lifespan)
 
 
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """브라우저는 HTML 에러 페이지, /api/* 는 JSON 유지."""
     if _is_api_request(request):
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
@@ -69,6 +77,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
             "status_code": exc.status_code,
             "title": title,
             "message": msg,
+            "mascot_src": _error_mascot_src(exc.status_code),
         },
         status_code=exc.status_code,
     )
@@ -77,7 +86,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """미처리 예외: 500. HTTPException은 상위 핸들러로."""
-    if isinstance(exc, HTTPException):
+    if isinstance(exc, StarletteHTTPException):
         raise exc
     tb = traceback.format_exc()
     print(f"[500] {request.method} {request.url.path}\n{tb}")
@@ -93,6 +102,7 @@ async def global_exception_handler(request: Request, exc: Exception):
             "status_code": 500,
             "title": _error_title(500),
             "message": "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+            "mascot_src": _error_mascot_src(500),
         },
         status_code=500,
     )
