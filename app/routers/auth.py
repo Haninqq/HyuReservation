@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
-from app.models import User, UserRole, parse_google_name
+from app.dependencies import get_logged_in_user
+from app.models import User, UserRole, parse_google_name, user_dept_missing
 from app.templating import templates
 from app.oauth import oauth
 
@@ -54,8 +55,10 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
     if user:
         user.name = name
-        user.dept = dept
         user.email = email
+        # Google에서 학과를 파싱한 경우에만 갱신 (빈 문자열이면 DB에 수동/폼으로 넣은 학과 유지)
+        if (dept or "").strip():
+            user.dept = dept.strip()
         await db.commit()
         await db.refresh(user)
         request.session["user_id"] = user.id
@@ -71,13 +74,54 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
     return RedirectResponse(url="/initial_setup", status_code=302)
 
 
+@router.get("/complete_dept", response_class=HTMLResponse)
+async def complete_dept_page(
+    request: Request,
+    user_or_redirect=Depends(get_logged_in_user),
+):
+    if isinstance(user_or_redirect, RedirectResponse):
+        return user_or_redirect
+    user = user_or_redirect
+    if not user_dept_missing(user):
+        return RedirectResponse(url="/main", status_code=302)
+    error = request.query_params.get("error")
+    return templates.TemplateResponse(
+        "complete_dept.html",
+        {"request": request, "error": error},
+    )
+
+
+@router.post("/complete_dept")
+async def complete_dept_submit(
+    request: Request,
+    user_or_redirect=Depends(get_logged_in_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if isinstance(user_or_redirect, RedirectResponse):
+        return user_or_redirect
+    user = user_or_redirect
+    if not user_dept_missing(user):
+        return RedirectResponse(url="/main", status_code=302)
+    form = await request.form()
+    dept = (form.get("dept") or "").strip()
+    if not dept or len(dept) > 100:
+        return RedirectResponse(url="/complete_dept?error=invalid", status_code=302)
+    user.dept = dept
+    await db.commit()
+    await db.refresh(user)
+    return RedirectResponse(url="/main", status_code=302)
+
+
 @router.get("/initial_setup", response_class=HTMLResponse)
 async def initial_setup_page(request: Request):
     if "pending_signup" not in request.session:
         return RedirectResponse(url="/login", status_code=302)
+    error = request.query_params.get("error")
+    pending = request.session["pending_signup"]
+    prefill_dept = (pending.get("dept") or "").strip()
     return templates.TemplateResponse(
         "initial_setup.html",
-        {"request": request},
+        {"request": request, "error": error, "prefill_dept": prefill_dept},
     )
 
 
@@ -86,12 +130,17 @@ async def complete_setup(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    pending = request.session.pop("pending_signup", None)
+    pending = request.session.get("pending_signup")
     if not pending:
         return RedirectResponse(url="/login", status_code=302)
 
     form_data = await request.form()
     is_graduate = form_data.get("is_graduate") in ("1", "true")
+    dept = (form_data.get("dept") or "").strip() or (pending.get("dept") or "").strip()
+    if not dept or len(dept) > 100:
+        return RedirectResponse(url="/initial_setup?error=dept", status_code=302)
+
+    request.session.pop("pending_signup", None)
 
     role = UserRole.super_admin
     count_result = await db.execute(select(User))
@@ -100,7 +149,7 @@ async def complete_setup(
     user = User(
         email=pending["email"],
         name=pending["name"],
-        dept=pending["dept"],
+        dept=dept,
         google_sub=pending["google_sub"],
         role=role,
         is_graduate=is_graduate,

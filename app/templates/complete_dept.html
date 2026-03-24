@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>회원 정보 입력 - 스터디룸 예약</title>
+    <title>학과 입력 - 스터디룸 예약</title>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="icon" type="image/png" sizes="96x96" href="/static/favicon-96x96.png">
@@ -71,35 +71,27 @@
             font-size: 0.85rem;
             font-weight: 500;
             color: var(--hy-gray-light);
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
         }
-        .setup-form { width: 100%; }
-        .setup-option {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem 1.5rem;
+        .setup-form { width: 100%; text-align: left; }
+        .setup-form label { font-weight: 600; font-size: 0.9rem; color: var(--hy-gray); margin-bottom: 0.5rem; display: block; }
+        .setup-form input[type="text"] {
+            width: 100%;
+            padding: 12px 14px;
             border: 2px solid #e8e8ec;
-            border-radius: 14px;
-            margin-bottom: 0.75rem;
-            font-weight: 600;
-            font-size: 1.05rem;
-            color: var(--hy-gray);
-            cursor: pointer;
-            transition: all 0.2s ease;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease;
         }
-        .setup-option:hover {
+        .setup-form input[type="text"]:focus {
+            outline: none;
             border-color: var(--hy-blue);
-            background: var(--hy-blue-soft);
-            color: var(--hy-blue);
+            box-shadow: 0 0 0 3px var(--hy-blue-soft);
         }
-        .setup-option.selected {
-            border-color: var(--hy-blue);
-            background: var(--hy-blue-soft);
-            color: var(--hy-blue);
-        }
-        .setup-option:active {
-            transform: scale(0.98);
+        .alert-dept {
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            border-radius: 12px;
         }
         .btn-submit {
             display: flex;
@@ -107,7 +99,7 @@
             justify-content: center;
             width: 100%;
             padding: 14px 24px;
-            margin-top: 1rem;
+            margin-top: 1.25rem;
             border-radius: 12px;
             border: none;
             background: linear-gradient(180deg, #2d3585 0%, var(--hy-blue) 100%);
@@ -126,32 +118,17 @@
     <div class="setup-box">
         <div class="setup-wrap">
             <div class="setup-icon"><span>H</span></div>
-            <h1 class="setup-title">회원 정보 입력</h1>
-            <p class="setup-subtitle">서비스 이용을 위해 아래에서 해당하는 항목을 선택해 주세요</p>
-            {% if error == 'dept' %}
-            <div class="alert alert-warning w-100 text-start py-2 px-3 mb-3" style="font-size: 0.85rem; border-radius: 12px;">학과를 입력해 주세요.</div>
+            <h1 class="setup-title">학과 입력</h1>
+            <p class="setup-subtitle">예약 서비스 이용을 위해 소속 학과를 입력해 주세요.</p>
+            {% if error == 'invalid' %}
+            <div class="alert alert-warning alert-dept py-2 px-3 w-100">학과를 1자 이상 100자 이하로 입력해 주세요.</div>
             {% endif %}
-            <form id="setupForm" action="/auth/complete_setup" method="POST" class="setup-form">
-                <input type="hidden" name="is_graduate" id="isGraduateInput" value="0">
-                <label for="dept" class="text-start w-100 d-block mb-2" style="font-weight: 600; font-size: 0.9rem; color: var(--hy-gray);">학과</label>
-                <input type="text" id="dept" name="dept" maxlength="100" class="w-100 mb-3"
-                    value="{{ prefill_dept }}"
-                    style="padding: 12px 14px; border: 2px solid #e8e8ec; border-radius: 12px; font-size: 1rem;"
-                    placeholder="예: 교육공학과" autocomplete="organization-title">
-                <div class="setup-option selected" data-is-graduate="0">학부생</div>
-                <div class="setup-option" data-is-graduate="1">대학원생</div>
-                <button type="submit" class="btn-submit">시작하기</button>
+            <form action="/complete_dept" method="POST" class="setup-form">
+                <label for="dept">학과</label>
+                <input type="text" id="dept" name="dept" maxlength="100" required autocomplete="organization-title" placeholder="예: 교육공학과">
+                <button type="submit" class="btn-submit">저장하고 시작하기</button>
             </form>
         </div>
     </div>
-    <script>
-        document.querySelectorAll('.setup-option').forEach(function(el) {
-            el.addEventListener('click', function() {
-                document.querySelectorAll('.setup-option').forEach(function(o) { o.classList.remove('selected'); });
-                this.classList.add('selected');
-                document.getElementById('isGraduateInput').value = this.dataset.isGraduate;
-            });
-        });
-    </script>
 </body>
 </html>

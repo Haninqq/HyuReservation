@@ -121,7 +121,7 @@
                 {% if user.role.value in ['admin', 'super_admin'] %}
                 <button class="btn btn-outline-light btn-sm me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#adminPanel">관리자</button>
                 {% endif %}
-                <span class="text-user me-3">{{ user.name }} ({{ user.dept }})</span>
+                <span class="text-user me-3">{{ user.name }} ({{ user.dept or '-' }})</span>
                 <a href="/logout" class="btn btn-outline-light btn-sm">로그아웃</a>
             </div>
         </div>

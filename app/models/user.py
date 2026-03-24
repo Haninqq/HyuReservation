@@ -35,3 +35,8 @@ def parse_google_name(raw_name: str) -> tuple[str, str]:
     name = parts[0] if len(parts) > 0 else ""
     dept = parts[1] if len(parts) > 1 else ""
     return name, dept
+
+
+def user_dept_missing(user: User) -> bool:
+    """학과 미입력(빈 문자열·공백만) 여부."""
+    return not (user.dept or "").strip()
