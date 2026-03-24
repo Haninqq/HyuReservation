@@ -15,6 +15,37 @@ from app.routers import admin, auth, reservations
 from app.templating import templates
 
 
+def _is_api_request(request: Request) -> bool:
+    return request.url.path.startswith("/api/")
+
+
+def _format_http_detail(detail) -> str:
+    if isinstance(detail, str):
+        return detail
+    if isinstance(detail, list):
+        parts = []
+        for item in detail[:8]:
+            if isinstance(item, dict):
+                parts.append(str(item.get("msg", item)))
+            else:
+                parts.append(str(item))
+        return "; ".join(parts) if parts else "요청을 처리할 수 없습니다."
+    return str(detail)
+
+
+def _error_title(status_code: int) -> str:
+    return {
+        400: "이건 뭔가 잘못됐어요",
+        401: "로그인이 필요해요",
+        403: "들어갈 수 없어요",
+        404: "여기엔 아무것도 없어요",
+        405: "그 방법은 안 돼요",
+        422: "입력을 다시 확인해 주세요",
+        429: "잠깐만요, 너무 빨라요",
+        500: "서버가 삐끗했어요",
+    }.get(status_code, "앗, 문제가 생겼어요")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -24,16 +55,46 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="스터디룸 예약 시스템", lifespan=lifespan)
 
 
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """브라우저는 HTML 에러 페이지, /api/* 는 JSON 유지."""
+    if _is_api_request(request):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    msg = _format_http_detail(exc.detail)
+    title = _error_title(exc.status_code)
+    return templates.TemplateResponse(
+        "error.html",
+        {
+            "request": request,
+            "status_code": exc.status_code,
+            "title": title,
+            "message": msg,
+        },
+        status_code=exc.status_code,
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """500 에러 시 traceback 로깅. HTTPException은 FastAPI 기본 처리 유지."""
+    """미처리 예외: 500. HTTPException은 상위 핸들러로."""
     if isinstance(exc, HTTPException):
         raise exc
     tb = traceback.format_exc()
     print(f"[500] {request.method} {request.url.path}\n{tb}")
-    return JSONResponse(
+    if _is_api_request(request):
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(exc) or "서버 오류가 발생했습니다."},
+        )
+    return templates.TemplateResponse(
+        "error.html",
+        {
+            "request": request,
+            "status_code": 500,
+            "title": _error_title(500),
+            "message": "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+        },
         status_code=500,
-        content={"detail": str(exc) or "서버 오류가 발생했습니다."},
     )
 app.add_middleware(SessionMiddleware, secret_key=get_settings().secret_key)
 

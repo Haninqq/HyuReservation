@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
@@ -5,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
+from app.dept_choices import DEPTS_GRADUATE, DEPTS_UNDERGRAD, allowed_depts, is_valid_dept
 from app.dependencies import get_logged_in_user
 from app.models import User, UserRole, parse_google_name, user_dept_missing
 from app.templating import templates
@@ -56,9 +59,11 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
     if user:
         user.name = name
         user.email = email
-        # Google에서 학과를 파싱한 경우에만 갱신 (빈 문자열이면 DB에 수동/폼으로 넣은 학과 유지)
+        # Google에서 학과를 파싱한 경우에만 갱신 — 허용 목록에 맞을 때만 (이상한 문자열 덮어쓰기 방지)
         if (dept or "").strip():
-            user.dept = dept.strip()
+            d = dept.strip()
+            if is_valid_dept(d, user.is_graduate):
+                user.dept = d
         await db.commit()
         await db.refresh(user)
         request.session["user_id"] = user.id
@@ -85,9 +90,15 @@ async def complete_dept_page(
     if not user_dept_missing(user):
         return RedirectResponse(url="/main", status_code=302)
     error = request.query_params.get("error")
+    dept_options = allowed_depts(user.is_graduate)
     return templates.TemplateResponse(
         "complete_dept.html",
-        {"request": request, "error": error},
+        {
+            "request": request,
+            "error": error,
+            "dept_options": dept_options,
+            "is_graduate": user.is_graduate,
+        },
     )
 
 
@@ -104,7 +115,7 @@ async def complete_dept_submit(
         return RedirectResponse(url="/main", status_code=302)
     form = await request.form()
     dept = (form.get("dept") or "").strip()
-    if not dept or len(dept) > 100:
+    if not is_valid_dept(dept, user.is_graduate):
         return RedirectResponse(url="/complete_dept?error=invalid", status_code=302)
     user.dept = dept
     await db.commit()
@@ -119,9 +130,21 @@ async def initial_setup_page(request: Request):
     error = request.query_params.get("error")
     pending = request.session["pending_signup"]
     prefill_dept = (pending.get("dept") or "").strip()
+    setup_data_json = json.dumps(
+        {
+            "undergrad": DEPTS_UNDERGRAD,
+            "graduate": DEPTS_GRADUATE,
+            "prefill": prefill_dept,
+        },
+        ensure_ascii=False,
+    )
     return templates.TemplateResponse(
         "initial_setup.html",
-        {"request": request, "error": error, "prefill_dept": prefill_dept},
+        {
+            "request": request,
+            "error": error,
+            "setup_data_json": setup_data_json,
+        },
     )
 
 
@@ -137,7 +160,7 @@ async def complete_setup(
     form_data = await request.form()
     is_graduate = form_data.get("is_graduate") in ("1", "true")
     dept = (form_data.get("dept") or "").strip() or (pending.get("dept") or "").strip()
-    if not dept or len(dept) > 100:
+    if not is_valid_dept(dept, is_graduate):
         return RedirectResponse(url="/initial_setup?error=dept", status_code=302)
 
     request.session.pop("pending_signup", None)

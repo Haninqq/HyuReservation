@@ -73,7 +73,21 @@
             color: var(--hy-gray-light);
             margin-bottom: 2rem;
         }
-        .setup-form { width: 100%; }
+        .setup-form { width: 100%; text-align: left; }
+        .setup-form select.dept-select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #e8e8ec;
+            border-radius: 12px;
+            font-size: 1rem;
+            background: #fff;
+            transition: border-color 0.2s ease;
+        }
+        .setup-form select.dept-select:focus {
+            outline: none;
+            border-color: var(--hy-blue);
+            box-shadow: 0 0 0 3px var(--hy-blue-soft);
+        }
         .setup-option {
             display: flex;
             align-items: center;
@@ -129,15 +143,13 @@
             <h1 class="setup-title">회원 정보 입력</h1>
             <p class="setup-subtitle">서비스 이용을 위해 아래에서 해당하는 항목을 선택해 주세요</p>
             {% if error == 'dept' %}
-            <div class="alert alert-warning w-100 text-start py-2 px-3 mb-3" style="font-size: 0.85rem; border-radius: 12px;">학과를 입력해 주세요.</div>
+            <div class="alert alert-warning w-100 text-start py-2 px-3 mb-3" style="font-size: 0.85rem; border-radius: 12px;">목록에서 학과를 선택해 주세요.</div>
             {% endif %}
+            <script type="application/json" id="setup-data">{{ setup_data_json | safe }}</script>
             <form id="setupForm" action="/auth/complete_setup" method="POST" class="setup-form">
                 <input type="hidden" name="is_graduate" id="isGraduateInput" value="0">
-                <label for="dept" class="text-start w-100 d-block mb-2" style="font-weight: 600; font-size: 0.9rem; color: var(--hy-gray);">학과</label>
-                <input type="text" id="dept" name="dept" maxlength="100" class="w-100 mb-3"
-                    value="{{ prefill_dept }}"
-                    style="padding: 12px 14px; border: 2px solid #e8e8ec; border-radius: 12px; font-size: 1rem;"
-                    placeholder="예: 교육공학과" autocomplete="organization-title">
+                <label for="deptSelect" class="text-start w-100 d-block mb-2" style="font-weight: 600; font-size: 0.9rem; color: var(--hy-gray);">학과</label>
+                <select id="deptSelect" name="dept" class="dept-select mb-3" required></select>
                 <div class="setup-option selected" data-is-graduate="0">학부생</div>
                 <div class="setup-option" data-is-graduate="1">대학원생</div>
                 <button type="submit" class="btn-submit">시작하기</button>
@@ -145,13 +157,39 @@
         </div>
     </div>
     <script>
-        document.querySelectorAll('.setup-option').forEach(function(el) {
-            el.addEventListener('click', function() {
-                document.querySelectorAll('.setup-option').forEach(function(o) { o.classList.remove('selected'); });
-                this.classList.add('selected');
-                document.getElementById('isGraduateInput').value = this.dataset.isGraduate;
+        (function() {
+            var dataEl = document.getElementById('setup-data');
+            var DATA = JSON.parse(dataEl.textContent);
+            function isGraduate() {
+                return document.getElementById('isGraduateInput').value === '1';
+            }
+            function rebuildDeptSelect() {
+                var sel = document.getElementById('deptSelect');
+                var list = isGraduate() ? DATA.graduate : DATA.undergrad;
+                var prefill = (DATA.prefill || '').trim();
+                sel.innerHTML = '';
+                var opt0 = document.createElement('option');
+                opt0.value = '';
+                opt0.textContent = '학과를 선택하세요';
+                sel.appendChild(opt0);
+                list.forEach(function(d) {
+                    var opt = document.createElement('option');
+                    opt.value = d;
+                    opt.textContent = d;
+                    if (d === prefill) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+            }
+            document.querySelectorAll('.setup-option').forEach(function(el) {
+                el.addEventListener('click', function() {
+                    document.querySelectorAll('.setup-option').forEach(function(o) { o.classList.remove('selected'); });
+                    this.classList.add('selected');
+                    document.getElementById('isGraduateInput').value = this.dataset.isGraduate;
+                    rebuildDeptSelect();
+                });
             });
-        });
+            rebuildDeptSelect();
+        })();
     </script>
 </body>
 </html>
