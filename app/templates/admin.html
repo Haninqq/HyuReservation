@@ -544,7 +544,8 @@
         <section id="pane-users" class="section-pane">
             <h2 class="header-title">사용자 관리</h2>
             <div class="dash-card">
-                <div class="table-responsive">
+                <!-- Desktop Table View -->
+                <div class="table-responsive d-none d-md-block">
                     <table class="table align-middle">
                         <thead>
                             <tr>
@@ -560,6 +561,11 @@
                             <!-- Loaded dynamically -->
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile Card View -->
+                <div id="usersCardsMobile" class="d-md-none mt-2">
+                    <!-- Loaded dynamically -->
                 </div>
             </div>
         </section>
@@ -1057,6 +1063,9 @@
             if (!data) return;
 
             const tbody = document.getElementById('usersTableBody');
+            const mobileCards = document.getElementById('usersCardsMobile');
+
+            // Render Table (Desktop)
             tbody.innerHTML = data.map(u => {
                 let roleHtml = '';
                 if (isSuperAdmin) {
@@ -1092,8 +1101,64 @@
                 `;
             }).join('');
 
-            // Register switch event listeners
-            tbody.querySelectorAll('.user-grad-switch').forEach(cb => {
+            // Render Cards (Mobile)
+            mobileCards.innerHTML = data.map(u => {
+                let roleSelectHtml = '';
+                if (isSuperAdmin) {
+                    roleSelectHtml = `
+                        <select class="form-select form-select-sm" onchange="updateUserRole(${u.id}, this.value)">
+                            <option value="user" ${u.role === 'user' ? 'selected' : ''}>user</option>
+                            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>admin</option>
+                            <option value="super_admin" ${u.role === 'super_admin' ? 'selected' : ''}>super_admin</option>
+                        </select>
+                    `;
+                } else {
+                    roleSelectHtml = `<span class="badge bg-secondary px-3 py-2 d-inline-block" style="border-radius:6px;">${u.role}</span>`;
+                }
+
+                return `
+                    <div class="card mb-3 border-0 shadow-sm" style="border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid #f0f0f5 !important;">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2.5 px-3" style="border-bottom: 1px solid #f0f0f5;">
+                            <span class="fw-bold text-secondary" style="font-size: 0.85rem;">#${u.id}</span>
+                            <span class="badge bg-secondary" style="border-radius: 6px; padding: 4px 8px;">${u.role}</span>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="p-2.5 rounded-3 bg-light" style="font-size: 0.85rem; border: 1px solid #f0f0f5;">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <span class="text-muted d-block small mb-1">이름</span>
+                                        <strong class="text-dark">${u.name || '-'}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted d-block small mb-1">학과</span>
+                                        <strong class="text-dark text-truncate d-block">${u.dept || '-'}</strong>
+                                    </div>
+                                    <div class="col-12 mt-2 border-top pt-2 border-white">
+                                        <span class="text-muted d-block small mb-1">이메일</span>
+                                        <strong class="text-dark">${u.email}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row g-3 align-items-center mt-2">
+                                <div class="col-6">
+                                    <label class="form-label small fw-bold text-secondary mb-1">역할 변경</label>
+                                    ${roleSelectHtml}
+                                </div>
+                                <div class="col-6 d-flex flex-column align-items-start">
+                                    <label class="form-label small fw-bold text-secondary mb-1">대학원생 여부</label>
+                                    <div class="form-check form-switch mt-1">
+                                        <input class="form-check-input user-grad-switch" type="checkbox" data-id="${u.id}" ${u.is_graduate ? 'checked' : ''}>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Register switch event listeners for both table and cards
+            const pane = document.getElementById('pane-users');
+            pane.querySelectorAll('.user-grad-switch').forEach(cb => {
                 cb.addEventListener('change', async function() {
                     const uid = this.dataset.id;
                     const isGraduate = this.checked;
