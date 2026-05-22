@@ -197,7 +197,7 @@
     <script>
         (function(){
             let rooms = [], selectedDate = '', selectedRoomId = 0, pendingSlot = null;
-            let appConfig = { max_advance_days: 7, exclude_weekends: true, exclude_holidays: true, holidays: [] };
+            let appConfig = { max_advance_days: 7, holidays: [], is_exam_period: false };
             const DAYS = ['일','월','화','수','목','금','토'];
 
             async function api(path, opts = {}) {
@@ -238,19 +238,18 @@
                 bar.innerHTML = '';
                 const today = new Date();
                 let count = 0, i = 0;
-                const limit = appConfig.max_advance_days;
-                const isExam = false; 
+                const isExam = appConfig.is_exam_period || false;
                 while (count < limit && i < 30) {
                     const d = new Date(today);
                     d.setDate(today.getDate() + i);
                     const ds = dateStr(d);
                     const dayOfWeek = d.getDay();
-                    const isWknd = (dayOfWeek === 0); // 일요일만 제외하도록 변경
+                    const isWknd = (dayOfWeek === 0); // 일요일
 
                     const isHol = appConfig.holidays.includes(ds);
                     
-                    if (appConfig.exclude_weekends && isWknd) { i++; continue; }
-                    if (appConfig.exclude_holidays && isHol) { i++; continue; }
+                    if (!isExam && isWknd) { i++; continue; }
+                    if (!isExam && isHol) { i++; continue; }
                     
                     const btn = document.createElement('button');
                     btn.type = 'button';
@@ -591,9 +590,8 @@
                 const cfg = await api('/api/config');
                 if (cfg) {
                     appConfig.max_advance_days = cfg.max_advance_days ?? 7;
-                    appConfig.exclude_weekends = cfg.exclude_weekends !== false;
-                    appConfig.exclude_holidays = cfg.exclude_holidays !== false;
                     appConfig.holidays = cfg.holidays || [];
+                    appConfig.is_exam_period = cfg.is_exam_period === true;
                 }
                 buildDateBar();
                 await loadRooms();

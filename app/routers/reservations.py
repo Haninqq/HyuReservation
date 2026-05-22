@@ -72,21 +72,21 @@ class ReservationOut(BaseModel):
 async def get_public_config(db: AsyncSession = Depends(get_db)):
     """main 페이지용 설정 (인증 불필요)."""
     max_adv = await get_max_advance_days(db)
-    exclude_wknd = await get_exclude_weekends(db)
-    exclude_hol = await get_exclude_holidays(db)
     holidays = await get_holidays(db)
     max_hours = await get_max_hours_per_day(db)
     slot_duration = await get_slot_duration(db)
+    is_exam = await get_is_exam_period(db)
     open_t, close_t = await get_operating_hours(db)
     return {
         "max_advance_days": max_adv,
-        "exclude_weekends": exclude_wknd,
-        "exclude_holidays": exclude_hol,
         "holidays": list(holidays),
         "max_hours_per_day": max_hours,
         "slot_duration": slot_duration,
         "operating_hours": {"open": open_t, "close": close_t},
+        "is_exam_period": is_exam,
     }
+
+
 
 
 @router.get("/rooms", response_model=list[RoomOut])

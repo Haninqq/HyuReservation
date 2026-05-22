@@ -596,23 +596,7 @@
                             <select class="form-select" id="cfg_operating_close" style="width: 120px;"></select>
                         </div>
                     </div>
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">일요일 예약 제한</label>
-                            <div class="form-check form-switch mt-2">
-                                <input class="form-check-input" type="checkbox" id="cfg_exclude_weekends">
-                                <label class="form-check-label" for="cfg_exclude_weekends">일요일 예약 불가</label>
-                            </div>
 
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small fw-bold">공휴일 예약 제한</label>
-                            <div class="form-check form-switch mt-2">
-                                <input class="form-check-input" type="checkbox" id="cfg_exclude_holidays">
-                                <label class="form-check-label" for="cfg_exclude_holidays">공휴일 예약 불가</label>
-                            </div>
-                        </div>
-                    </div>
                     <div class="mb-4">
                         <label class="form-label small fw-bold">예약 가능 최대 미래 일수</label>
                         <input type="number" class="form-control" id="cfg_max_advance_days" min="1" max="30">
@@ -1206,12 +1190,8 @@
             document.getElementById('cfg_holidays_json').value = configData.holidays_json || '[]';
 
             // Set switches
-            const exWknd = ['true','1','yes'].includes((configData.exclude_weekends || 'true').toLowerCase());
-            const exHol = ['true','1','yes'].includes((configData.exclude_holidays || 'true').toLowerCase());
             const isExam = ['true','1','yes'].includes((configData.is_exam_period || 'false').toLowerCase());
 
-            document.getElementById('cfg_exclude_weekends').checked = exWknd;
-            document.getElementById('cfg_exclude_holidays').checked = exHol;
             document.getElementById('cfg_is_exam_period').checked = isExam;
             
             updateExamLabel(isExam);
@@ -1246,8 +1226,6 @@
             cfg.max_advance_days = document.getElementById('cfg_max_advance_days').value;
             cfg.holidays_json = document.getElementById('cfg_holidays_json').value;
 
-            cfg.exclude_weekends = document.getElementById('cfg_exclude_weekends').checked ? 'true' : 'false';
-            cfg.exclude_holidays = document.getElementById('cfg_exclude_holidays').checked ? 'true' : 'false';
             cfg.is_exam_period = document.getElementById('cfg_is_exam_period').checked ? 'true' : 'false';
 
             const openVal = document.getElementById('cfg_operating_open').value;

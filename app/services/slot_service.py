@@ -52,23 +52,26 @@ async def get_available_slots(
     """
     해당 날짜·방의 슬롯 목록. 각 슬롯: {start, end, available: bool}
     """
-    open_s, close_s = await get_operating_hours(db)
     slot_mins = await get_slot_duration(db)
-    exclude_wknd = await get_exclude_weekends(db)
-    exclude_hol = await get_exclude_holidays(db)
     holidays = await get_holidays(db)
     max_hours = await get_max_hours_per_day(db)
     is_exam = await get_is_exam_period(db)
 
-    # 주말(일요일) 제외
-    if exclude_wknd and target_date.weekday() == 6:
+    # 시험 기간인 경우 강제로 24시간 운영시간 설정, 비시험 기간에는 저장된 운영시간 적용
+    if is_exam:
+        open_s, close_s = "00:00", "24:00"
+    else:
+        open_s, close_s = await get_operating_hours(db)
+
+    # 주말(일요일) 제외 (시험 기간에는 예외적으로 허용)
+    if not is_exam and target_date.weekday() == 6:
         return []
 
-
-    # 공휴일 제외
+    # 공휴일 제외 (시험 기간에는 예외적으로 허용)
     date_str = target_date.isoformat()
-    if exclude_hol and date_str in holidays:
+    if not is_exam and date_str in holidays:
         return []
+
 
     open_t = _parse_time(open_s)
     close_t = _parse_time(close_s)
