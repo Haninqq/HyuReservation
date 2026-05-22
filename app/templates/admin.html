@@ -31,6 +31,7 @@
             display: flex;
             flex-direction: column;
             box-shadow: 4px 0 16px rgba(29, 36, 117, 0.15);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .sidebar .brand {
             padding: 24px 20px;
@@ -78,6 +79,7 @@
             flex: 1;
             padding: 40px;
             min-width: 0;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .header-title {
@@ -292,7 +294,7 @@
             }
             .sidebar {
                 left: -var(--sidebar-width);
-                transition: left 0.3s ease;
+                transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 z-index: 1000;
             }
             .sidebar.show {
@@ -311,6 +313,65 @@
             .stat-value {
                 font-size: 1.5rem;
             }
+            /* Mobile touch accessibility improvements */
+            .table .btn {
+                padding: 8px 14px;
+                font-size: 0.85rem;
+                margin-bottom: 4px;
+            }
+            .form-control, .form-select {
+                padding: 12px 14px;
+                font-size: 0.95rem;
+            }
+            .sidebar .brand {
+                padding: 20px 16px;
+            }
+        }
+
+        /* Desktop Collapse Styles */
+        @media (min-width: 992px) {
+            body.sidebar-collapsed .sidebar {
+                width: 75px;
+            }
+            body.sidebar-collapsed .main-content {
+                margin-left: 75px;
+            }
+            body.sidebar-collapsed .sidebar .brand {
+                padding: 24px 0;
+                justify-content: center !important;
+            }
+            body.sidebar-collapsed .sidebar .brand .brand-text {
+                display: none;
+            }
+            body.sidebar-collapsed .sidebar .brand #sidebarCollapseBtn {
+                transform: rotate(180deg);
+            }
+            body.sidebar-collapsed .sidebar .nav-menu {
+                padding: 20px 8px;
+            }
+            body.sidebar-collapsed .sidebar .nav-menu .nav-link {
+                font-size: 0 !important;
+                padding: 12px 0;
+                justify-content: center;
+                gap: 0;
+            }
+            body.sidebar-collapsed .sidebar .nav-menu .nav-link span {
+                font-size: 1.3rem;
+                margin: 0;
+            }
+            body.sidebar-collapsed .sidebar .user-info {
+                padding: 15px 5px;
+                text-align: center;
+            }
+            body.sidebar-collapsed .sidebar .user-info .fw-bold,
+            body.sidebar-collapsed .sidebar .user-info .text-white-50 {
+                display: none;
+            }
+            body.sidebar-collapsed .sidebar .user-info::before {
+                content: "👤";
+                font-size: 1.3rem;
+                display: block;
+            }
         }
     </style>
 </head>
@@ -328,9 +389,17 @@
 
     <!-- Sidebar -->
     <aside class="sidebar">
-        <div class="brand">
-            <span style="font-size: 1.4rem;">🏛️</span>
-            <span>HYU Admin Portal</span>
+        <div class="brand d-flex justify-content-between align-items-center w-100">
+            <div class="d-flex align-items-center gap-2">
+                <span style="font-size: 1.4rem;">🏛️</span>
+                <span class="brand-text">HYU Admin Portal</span>
+            </div>
+            <button id="sidebarCollapseBtn" class="btn btn-link text-white p-0 d-none d-lg-block" style="font-size: 1.1rem; text-decoration: none; box-shadow: none; transition: transform 0.2s ease;">
+                ◀️
+            </button>
+            <button id="sidebarCloseBtn" class="btn btn-link text-white p-0 d-lg-none" style="font-size: 1.2rem; text-decoration: none; box-shadow: none;">
+                ❌
+            </button>
         </div>
         <nav class="nav-menu">
             <a href="#" class="nav-link active" data-target="dashboard">
@@ -421,11 +490,11 @@
                     <table class="table align-middle">
                         <thead>
                             <tr>
-                                <th>예약 ID</th>
+                                <th class="d-none d-md-table-cell">예약 ID</th>
                                 <th>시간</th>
                                 <th>방 이름</th>
                                 <th>예약자</th>
-                                <th>학과</th>
+                                <th class="d-none d-md-table-cell">학과</th>
                                 <th>상태</th>
                                 <th>작업</th>
                             </tr>
@@ -449,10 +518,10 @@
                     <table class="table align-middle">
                         <thead>
                             <tr>
-                                <th style="width: 80px;">ID</th>
+                                <th style="width: 80px;" class="d-none d-md-table-cell">ID</th>
                                 <th>제목</th>
-                                <th>내용</th>
-                                <th>등록일</th>
+                                <th class="d-none d-md-table-cell">내용</th>
+                                <th class="d-none d-md-table-cell">등록일</th>
                                 <th>노출 상태</th>
                                 <th style="width: 150px;">작업</th>
                             </tr>
@@ -473,10 +542,10 @@
                     <table class="table align-middle">
                         <thead>
                             <tr>
-                                <th>ID</th>
+                                <th class="d-none d-md-table-cell">ID</th>
                                 <th>이름</th>
-                                <th>이메일</th>
-                                <th>학과</th>
+                                <th class="d-none d-md-table-cell">이메일</th>
+                                <th class="d-none d-md-table-cell">학과</th>
                                 <th>역할</th>
                                 <th>대학원생</th>
                             </tr>
@@ -660,8 +729,24 @@
             openSel.innerHTML = opts;
             closeSel.innerHTML = opts;
 
+            // Desktop sidebar collapse toggle setup
+            const collapseBtn = document.getElementById('sidebarCollapseBtn');
+            if (collapseBtn) {
+                collapseBtn.addEventListener('click', () => {
+                    document.body.classList.toggle('sidebar-collapsed');
+                    const isCollapsed = document.body.classList.contains('sidebar-collapsed');
+                    localStorage.setItem('sidebar_collapsed', isCollapsed ? '1' : '0');
+                });
+            }
+
+            // Restore sidebar state from localStorage on load
+            if (localStorage.getItem('sidebar_collapsed') === '1') {
+                document.body.classList.add('sidebar-collapsed');
+            }
+
             // Mobile sidebar toggle setup
             const menuToggle = document.getElementById('menuToggle');
+            const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
             const sidebar = document.querySelector('.sidebar');
             const backdrop = document.createElement('div');
             backdrop.className = 'sidebar-backdrop';
@@ -674,6 +759,9 @@
 
             if (menuToggle) {
                 menuToggle.addEventListener('click', toggleSidebar);
+            }
+            if (sidebarCloseBtn) {
+                sidebarCloseBtn.addEventListener('click', toggleSidebar);
             }
             backdrop.addEventListener('click', toggleSidebar);
 
@@ -747,14 +835,20 @@
 
                 return `
                     <tr>
-                        <td><strong>#${r.id}</strong></td>
-                        <td>${formattedTime}</td>
+                        <td class="d-none d-md-table-cell"><strong>#${r.id}</strong></td>
+                        <td>
+                            <div class="fw-bold" style="white-space: nowrap;">${formattedTime}</div>
+                            <div class="d-md-none text-muted small" style="font-size:0.75rem;">#${r.id}</div>
+                        </td>
                         <td><span class="badge bg-secondary" style="border-radius:6px;">${r.room_name}</span></td>
                         <td>
                             <div class="fw-bold">${r.user_name}</div>
-                            <div class="text-muted small" style="font-size:0.75rem;">${r.user_email}</div>
+                            <div class="text-muted small" style="font-size:0.75rem; white-space: normal;">
+                                <span class="d-md-none">${r.user_dept}</span>
+                                <span class="d-none d-md-inline">${r.user_email}</span>
+                            </div>
                         </td>
-                        <td>${r.user_dept}</td>
+                        <td class="d-none d-md-table-cell">${r.user_dept}</td>
                         <td>${statusBadge}</td>
                         <td>${actionBtn}</td>
                     </tr>
@@ -816,10 +910,15 @@
 
                 return `
                     <tr>
-                        <td><strong>${n.id}</strong></td>
-                        <td class="fw-bold">${titleEsc}</td>
-                        <td class="text-secondary small" style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${contentEsc}">${formatContent}</td>
-                        <td>${n.created_at.slice(0, 10)}</td>
+                        <td class="d-none d-md-table-cell"><strong>${n.id}</strong></td>
+                        <td class="fw-bold">
+                            <div>${titleEsc}</div>
+                            <div class="d-md-none text-muted small mt-1" style="font-weight: normal; font-size:0.75rem; white-space: normal;">
+                                ${formatContent}
+                            </div>
+                        </td>
+                        <td class="text-secondary small d-none d-md-table-cell" style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${contentEsc}">${formatContent}</td>
+                        <td class="d-none d-md-table-cell">${n.created_at.slice(0, 10)}</td>
                         <td>${statusBadge}</td>
                         <td>${actions}</td>
                     </tr>
@@ -907,10 +1006,15 @@
 
                 return `
                     <tr>
-                        <td><strong>${u.id}</strong></td>
-                        <td class="fw-bold">${u.name || '-'}</td>
-                        <td>${u.email}</td>
-                        <td>${u.dept}</td>
+                        <td class="d-none d-md-table-cell"><strong>${u.id}</strong></td>
+                        <td class="fw-bold">
+                            <div>${u.name || '-'}</div>
+                            <div class="d-md-none text-muted small mt-1" style="font-weight: normal; font-size:0.75rem; white-space: normal;">
+                                #${u.id} | ${u.dept} | ${u.email}
+                            </div>
+                        </td>
+                        <td class="d-none d-md-table-cell">${u.email}</td>
+                        <td class="d-none d-md-table-cell">${u.dept}</td>
                         <td>${roleHtml}</td>
                         <td>
                             <div class="form-check form-switch">
