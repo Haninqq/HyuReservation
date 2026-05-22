@@ -93,6 +93,12 @@ async def complete_setup(
     form_data = await request.form()
     is_graduate = form_data.get("is_graduate") in ("1", "true")
 
+    dept = pending["dept"]
+    if is_graduate:
+        form_dept = form_data.get("dept")
+        if form_dept:
+            dept = form_dept
+
     role = UserRole.super_admin
     count_result = await db.execute(select(User))
     if count_result.scalars().all():
@@ -100,7 +106,7 @@ async def complete_setup(
     user = User(
         email=pending["email"],
         name=pending["name"],
-        dept=pending["dept"],
+        dept=dept,
         google_sub=pending["google_sub"],
         role=role,
         is_graduate=is_graduate,

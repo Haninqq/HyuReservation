@@ -96,13 +96,26 @@
         .setup-option:active {
             transform: scale(0.98);
         }
+        .form-select {
+            border-radius: 12px;
+            border: 2px solid #e8e8ec;
+            padding: 12px;
+            font-size: 0.95rem;
+            font-weight: 550;
+            color: var(--hy-gray);
+            transition: all 0.2s ease;
+        }
+        .form-select:focus {
+            border-color: var(--hy-blue);
+            box-shadow: 0 0 0 3px var(--hy-blue-soft);
+        }
         .btn-submit {
             display: flex;
             align-items: center;
             justify-content: center;
             width: 100%;
             padding: 14px 24px;
-            margin-top: 1rem;
+            margin-top: 1.5rem;
             border-radius: 12px;
             border: none;
             background: linear-gradient(180deg, #2d3585 0%, var(--hy-blue) 100%);
@@ -127,6 +140,34 @@
                 <input type="hidden" name="is_graduate" id="isGraduateInput" value="0">
                 <div class="setup-option selected" data-is-graduate="0">학부생</div>
                 <div class="setup-option" data-is-graduate="1">대학원생</div>
+                
+                <!-- 대학원 전공 선택 (대학원생 선택 시 표출) -->
+                <div class="mb-3 text-start" id="deptSelectContainer" style="display: none;">
+                    <label class="form-label small fw-bold text-muted mb-2">대학원 전공 선택</label>
+                    <select class="form-select" name="dept" id="deptSelect">
+                        <option value="" disabled selected>전공을 선택해주세요</option>
+                        <!-- 일반대학원 -->
+                        <option value="교육공학과">교육공학과</option>
+                        <option value="러닝사이언스학과">러닝사이언스학과</option>
+                        <option value="응용미술학과">응용미술학과</option>
+                        <option value="한국어교육학과">한국어교육학과</option>
+                        <option value="박물관교육학과">박물관교육학과</option>
+                        <option value="다문화교육학과">다문화교육학과</option>
+                        <option value="평생학습학과">평생학습학과</option>
+                        <!-- 교육대학원 -->
+                        <option value="상담심리">상담심리</option>
+                        <option value="유아교육">유아교육</option>
+                        <option value="교육공학">교육공학</option>
+                        <option value="국어교육">국어교육</option>
+                        <option value="영어교육">영어교육</option>
+                        <option value="수학교육">수학교육</option>
+                        <option value="일반사회교육">일반사회교육</option>
+                        <option value="음악교육">음악교육</option>
+                        <option value="미술교육">미술교육</option>
+                        <option value="체육교육">체육교육</option>
+                    </select>
+                </div>
+
                 <button type="submit" class="btn-submit">시작하기</button>
             </form>
         </div>
@@ -136,7 +177,20 @@
             el.addEventListener('click', function() {
                 document.querySelectorAll('.setup-option').forEach(function(o) { o.classList.remove('selected'); });
                 this.classList.add('selected');
-                document.getElementById('isGraduateInput').value = this.dataset.isGraduate;
+                
+                const isGraduate = this.dataset.isGraduate;
+                document.getElementById('isGraduateInput').value = isGraduate;
+                
+                const deptContainer = document.getElementById('deptSelectContainer');
+                const deptSelect = document.getElementById('deptSelect');
+                if (isGraduate === "1") {
+                    deptContainer.style.display = 'block';
+                    deptSelect.setAttribute('required', 'required');
+                } else {
+                    deptContainer.style.display = 'none';
+                    deptSelect.removeAttribute('required');
+                    deptSelect.value = ""; // Reset value
+                }
             });
         });
     </script>
