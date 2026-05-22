@@ -360,25 +360,37 @@
             function handleSlotSelect(idx) {
                 const MAX_SLOTS = 6;
                 if (selectedStartIdx < 0) {
+                    // 아무 슬롯도 선택되지 않은 상태: 클릭한 슬롯을 시작/종료 슬롯으로 설정 (30분 예약 지원)
                     selectedStartIdx = idx;
-                    selectedEndIdx = -1;
-                } else if (selectedEndIdx >= 0) {
-                    selectedStartIdx = idx;
-                    selectedEndIdx = -1;
-                } else {
-                    const start = Math.min(selectedStartIdx, idx);
-                    const end = Math.max(selectedStartIdx, idx);
-                    if (end === start) {
-                        selectedStartIdx = idx;
-                        selectedEndIdx = -1;
-                    } else if (end - start + 1 > MAX_SLOTS) {
-                        selectedStartIdx = idx;
+                    selectedEndIdx = idx;
+                } else if (selectedStartIdx === selectedEndIdx) {
+                    // 정확히 1개 슬롯만 선택된 상태
+                    if (idx === selectedStartIdx) {
+                        // 같은 슬롯을 다시 클릭하면 선택 해제
+                        selectedStartIdx = -1;
                         selectedEndIdx = -1;
                     } else {
-                        const allAvail = Array.from({length: end-start+1}, (_,i)=>slotsData[start+i].available).every(Boolean);
-                        if (allAvail) selectedEndIdx = idx;
-                        else { selectedStartIdx = idx; selectedEndIdx = -1; }
+                        // 다른 슬롯을 클릭하면 범위(시작~종료) 지정 시도
+                        const start = Math.min(selectedStartIdx, idx);
+                        const end = Math.max(selectedStartIdx, idx);
+                        if (end - start + 1 > MAX_SLOTS) {
+                            selectedStartIdx = idx;
+                            selectedEndIdx = idx;
+                        } else {
+                            const allAvail = Array.from({length: end-start+1}, (_,i)=>slotsData[start+i].available).every(Boolean);
+                            if (allAvail) {
+                                selectedStartIdx = start;
+                                selectedEndIdx = end;
+                            } else {
+                                selectedStartIdx = idx;
+                                selectedEndIdx = idx;
+                            }
+                        }
                     }
+                } else {
+                    // 이미 범위가 지정된 상태에서 아무 슬롯이나 클릭하면, 해당 단일 슬롯 선택으로 재설정
+                    selectedStartIdx = idx;
+                    selectedEndIdx = idx;
                 }
                 updateSlotStyles();
                 const area = document.getElementById('reserveBtnArea');
