@@ -12,6 +12,7 @@ DEFAULTS = {
     "exclude_weekends": True,
     "exclude_holidays": True,
     "max_advance_days": 7,
+    "is_exam_period": False,
     "holidays_json": "[]",
 }
 
@@ -84,3 +85,9 @@ async def get_holidays(db: AsyncSession) -> set[str]:
         return set(arr) if isinstance(arr, list) else set()
     except (json.JSONDecodeError, TypeError):
         return set()
+
+
+async def get_is_exam_period(db: AsyncSession) -> bool:
+    v = await get_config(db, "is_exam_period")
+    return v.lower() in ("true", "1", "yes") if v else False
+

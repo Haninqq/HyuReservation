@@ -17,8 +17,14 @@ from app.services.config_service import (
     get_exclude_holidays,
     get_holidays,
     get_slot_duration,
+    get_is_exam_period,
 )
-from app.services.slot_service import get_available_slots, get_user_remaining_hours
+from app.services.slot_service import (
+    get_available_slots,
+    get_user_remaining_hours,
+    get_user_remaining_hours_split,
+    split_reservation_hours,
+)
 
 router = APIRouter(prefix="/api", tags=["reservations"])
 
@@ -121,8 +127,13 @@ async def get_remaining_hours(
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format (use YYYY-MM-DD)")
-    remaining = await get_user_remaining_hours(db, user.id, target_date)
-    return {"remaining_hours": round(remaining, 2)}
+    res = await get_user_remaining_hours_split(db, user.id, target_date)
+    return {
+        "remaining_hours": round(res["remaining_hours"], 2),
+        "remaining_day_hours": round(res["remaining_day_hours"], 2),
+        "remaining_dawn_hours": round(res["remaining_dawn_hours"], 2),
+        "is_exam_period": res["is_exam_period"]
+    }
 
 
 @router.post("/reservations", response_model=ReservationOut, status_code=201)
@@ -158,11 +169,45 @@ async def create_reservation(
     if start_dt.date() > today + timedelta(days=max_adv):
         raise HTTPException(status_code=400, detail=f"예약은 {max_adv}일 이내만 가능합니다.")
 
-    # 인당 일일 제한
-    remaining = await get_user_remaining_hours(db, user.id, start_dt.date())
-    slot_hours = (end_dt - start_dt).total_seconds() / 3600
-    if slot_hours > remaining:
-        raise HTTPException(status_code=400, detail="일일 예약 가능 시간을 초과했습니다.")
+    # 인당 일일 제한 (시험 기간 분할 검증 적용)
+    is_exam = await get_is_exam_period(db)
+    max_hours = 5.0 if is_exam else float(await get_max_hours_per_day(db))
+    
+    req_dawn, req_day = split_reservation_hours(start_dt, end_dt)
+    req_total = (end_dt - start_dt).total_seconds() / 3600.0
+    
+    from sqlalchemy import and_
+    day_start = datetime.combine(start_dt.date(), datetime.min.time())
+    day_end = datetime.combine(start_dt.date(), datetime.max.time())
+    result = await db.execute(
+        select(Reservation.start_time, Reservation.end_time, Reservation.billed_end_time).where(
+            and_(
+                Reservation.user_id == user.id,
+                Reservation.status == ReservationStatus.confirmed,
+                Reservation.start_time >= day_start,
+                Reservation.end_time <= day_end + timedelta(seconds=1),
+            )
+        )
+    )
+    
+    used_dawn = 0.0
+    used_day = 0.0
+    for r in result.all():
+        eff_end = r.billed_end_time or r.end_time
+        dawn, day = split_reservation_hours(r.start_time, eff_end)
+        used_dawn += dawn
+        used_day += day
+        
+    if is_exam:
+        if used_day + req_day > 3.0:
+            raise HTTPException(status_code=400, detail="시험기간 중 주간(09:00~24:00) 예약 한도는 최대 3시간입니다.")
+        if used_dawn + req_dawn > 2.0:
+            raise HTTPException(status_code=400, detail="시험기간 중 새벽(00:00~09:00) 예약 한도는 최대 2시간입니다.")
+        if (used_dawn + used_day) + req_total > 5.0:
+            raise HTTPException(status_code=400, detail="시험기간 중 일일 총 예약 한도는 5시간입니다.")
+    else:
+        if (used_dawn + used_day) + req_total > max_hours:
+            raise HTTPException(status_code=400, detail="일일 예약 가능 시간을 초과했습니다.")
 
     # 슬롯이 예약 가능한지 확인 (범위 전체가 available이어야 함)
     slots = await get_available_slots(db, start_dt.date(), body.room_id, user.id)
@@ -175,7 +220,6 @@ async def create_reservation(
         raise HTTPException(status_code=400, detail="해당 시간은 예약할 수 없습니다.")
 
     # 중복 예약 체크 (같은 user, 같은 시간대 - 다른 방이어도 1인 1예약)
-    from sqlalchemy import and_
     overlap = await db.execute(
         select(Reservation).where(
             and_(
@@ -321,3 +365,79 @@ async def early_checkout(
         cancelable=cancelable,
         can_early_checkout=can_early_checkout,
     )
+
+
+# --- Notice Schema ---
+class NoticeOut(BaseModel):
+    id: int
+    title: str
+    content: str
+    created_at: str
+
+
+# --- Notice Route ---
+@router.get("/notices", response_model=list[NoticeOut])
+async def list_notices(db: AsyncSession = Depends(get_db)):
+    from app.models.notice import Notice
+    result = await db.execute(
+        select(Notice).where(Notice.is_active == True).order_by(Notice.created_at.desc())
+    )
+    rows = result.scalars().all()
+    return [
+        NoticeOut(
+            id=n.id,
+            title=n.title,
+            content=n.content,
+            created_at=n.created_at.isoformat()
+        )
+        for n in rows
+    ]
+
+
+# --- Notification Routes ---
+@router.get("/notifications")
+async def get_notifications(
+    user: User = Depends(get_current_user_api),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Reservation, Room)
+        .join(Room, Reservation.room_id == Room.id)
+        .where(
+            Reservation.user_id == user.id,
+            Reservation.cancelled_by_admin == True,
+            Reservation.user_notified == False,
+        )
+    )
+    rows = result.all()
+    out = []
+    for r, room in rows:
+        out.append({
+            "id": r.id,
+            "room_name": room.name,
+            "start_time": r.start_time.isoformat(),
+            "end_time": r.end_time.isoformat(),
+            "cancel_reason": r.cancel_reason or "사유가 입력되지 않았습니다."
+        })
+    return out
+
+
+@router.post("/notifications/{reservation_id}/read")
+async def read_notification(
+    reservation_id: int,
+    user: User = Depends(get_current_user_api),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Reservation).where(
+            Reservation.id == reservation_id,
+            Reservation.user_id == user.id
+        )
+    )
+    r = result.scalar_one_or_none()
+    if not r:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    r.user_notified = True
+    await db.commit()
+    return {"ok": True}
+

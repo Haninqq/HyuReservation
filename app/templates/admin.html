@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 대시보드 - 스터디룸 예약 시스템</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+    <style>
+        :root {
+            --hy-blue: #1D2475;
+            --hy-blue-light: #2d3585;
+            --hy-blue-soft: rgba(29, 36, 117, 0.08);
+            --hy-gray: #3F3D42;
+            --hy-gray-light: #6B6B70;
+            --sidebar-width: 260px;
+        }
+        * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+        body { background: #f8f9fa; min-height: 100vh; display: flex; }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(180deg, var(--hy-blue) 0%, #171d5e 100%);
+            color: #fff;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 16px rgba(29, 36, 117, 0.15);
+        }
+        .sidebar .brand {
+            padding: 24px 20px;
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .sidebar .nav-menu {
+            flex: 1;
+            padding: 20px 12px;
+        }
+        .sidebar .nav-menu .nav-link {
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 500;
+            padding: 12px 16px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+            transition: all 0.2s ease;
+        }
+        .sidebar .nav-menu .nav-link:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .sidebar .nav-menu .nav-link.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.15);
+            font-weight: 600;
+        }
+        .sidebar .user-info {
+            padding: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.85rem;
+        }
+
+        /* Content Area Styling */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 40px;
+            min-width: 0;
+        }
+        
+        .header-title {
+            font-weight: 700;
+            color: var(--hy-gray);
+            margin-bottom: 24px;
+        }
+
+        /* Card components */
+        .dash-card {
+            background: #fff;
+            border-radius: 16px;
+            border: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            padding: 24px;
+            margin-bottom: 30px;
+            transition: all 0.2s ease;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 16px;
+            border: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: transform 0.2s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--hy-blue-soft);
+            color: var(--hy-blue);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        .stat-title {
+            font-size: 0.85rem;
+            color: var(--hy-gray-light);
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--hy-gray);
+            line-height: 1;
+        }
+
+        .section-pane {
+            display: none;
+        }
+        .section-pane.active {
+            display: block;
+        }
+
+        /* Premium Form controls & buttons */
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 1px solid #dcdce6;
+            padding: 10px 14px;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--hy-blue);
+            box-shadow: 0 0 0 3px var(--hy-blue-soft);
+        }
+        .btn {
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: 550;
+            transition: all 0.2s ease;
+        }
+        .btn-primary {
+            background: var(--hy-blue);
+            border-color: var(--hy-blue);
+        }
+        .btn-primary:hover {
+            background: var(--hy-blue-light);
+            border-color: var(--hy-blue-light);
+        }
+        .btn-outline-danger {
+            border-color: #f5c2c7;
+            color: #ea4c46;
+        }
+        .btn-outline-danger:hover {
+            background: #ea4c46;
+            border-color: #ea4c46;
+            color: #fff;
+        }
+
+        /* Tables */
+        .table-responsive {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #eaeaea;
+        }
+        .table {
+            margin-bottom: 0;
+            font-size: 0.9rem;
+        }
+        .table th {
+            background: #fafafb;
+            color: var(--hy-gray-light);
+            font-weight: 600;
+            padding: 14px 16px;
+            border-bottom: 1px solid #eaeaea;
+        }
+        .table td {
+            padding: 14px 16px;
+            vertical-align: middle;
+            color: var(--hy-gray);
+            border-bottom: 1px solid #f2f2f5;
+        }
+        .table tr:last-child td {
+            border-bottom: none;
+        }
+        .badge-confirmed {
+            background: #d4edda;
+            color: #155724;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+        .badge-cancelled {
+            background: #f8d7da;
+            color: #721c24;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        .modal-content {
+            border-radius: 18px;
+            border: none;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .modal-header {
+            border-bottom: 1px solid #f0f1f5;
+            padding: 20px 24px;
+        }
+        .modal-body {
+            padding: 24px;
+        }
+        .modal-footer {
+            border-top: 1px solid #f0f1f5;
+            padding: 16px 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand">
+            <span style="font-size: 1.4rem;">🏛️</span>
+            <span>HYU Admin Portal</span>
+        </div>
+        <nav class="nav-menu">
+            <a href="#" class="nav-link active" data-target="dashboard">
+                <span>📊</span> 대시보드
+            </a>
+            <a href="#" class="nav-link" data-target="reservations" id="navLinkReservations">
+                <span>📅</span> 예약 현황
+            </a>
+            <a href="#" class="nav-link" data-target="notices" id="navLinkNotices">
+                <span>📢</span> 공지사항 관리
+            </a>
+            <a href="#" class="nav-link" data-target="users" id="navLinkUsers">
+                <span>👥</span> 사용자 관리
+            </a>
+            <a href="#" class="nav-link" data-target="settings" id="navLinkSettings">
+                <span>⚙️</span> 시스템 설정
+            </a>
+            <div class="mt-4 pt-4 border-top border-secondary">
+                <a href="/main" class="nav-link">
+                    <span>↩️</span> 사용자 페이지로
+                </a>
+            </div>
+        </nav>
+        <div class="user-info">
+            <div class="fw-bold">{{ user.name }}</div>
+            <div class="text-white-50" style="font-size: 0.8rem;">{{ user.email }}</div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- DASHBOARD SECTION -->
+        <section id="pane-dashboard" class="section-pane active">
+            <h2 class="header-title">대시보드</h2>
+            <div class="row g-4 mb-4">
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div>
+                            <div class="stat-title">오늘 예약 수</div>
+                            <div class="stat-value" id="statTodayCount">-</div>
+                        </div>
+                        <div class="stat-icon">📅</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div>
+                            <div class="stat-title">누적 예약 수</div>
+                            <div class="stat-value" id="statTotalCount">-</div>
+                        </div>
+                        <div class="stat-icon">📈</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div>
+                            <div class="stat-title">시험 기간 모드</div>
+                            <div class="stat-value" id="statExamMode">-</div>
+                        </div>
+                        <div class="stat-icon">📝</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dash-card">
+                <h5 class="fw-bold mb-4" style="color: var(--hy-gray);">방별 예약 현황</h5>
+                <div class="row" id="roomStatsGrid">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- RESERVATIONS SECTION -->
+        <section id="pane-reservations" class="section-pane">
+            <h2 class="header-title">예약 현황</h2>
+            <div class="dash-card">
+                <div class="row g-3 mb-4 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">날짜 선택</label>
+                        <input type="date" id="searchDate" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary" onclick="loadReservations()">조회</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>예약 ID</th>
+                                <th>시간</th>
+                                <th>방 이름</th>
+                                <th>예약자</th>
+                                <th>학과</th>
+                                <th>상태</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reservationsTableBody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- NOTICES SECTION -->
+        <section id="pane-notices" class="section-pane">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="header-title mb-0">공지사항 관리</h2>
+                <button class="btn btn-primary" onclick="openNoticeModal()">🆕 공지사항 등록</button>
+            </div>
+            <div class="dash-card">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">ID</th>
+                                <th>제목</th>
+                                <th>내용</th>
+                                <th>등록일</th>
+                                <th>노출 상태</th>
+                                <th style="width: 150px;">작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="noticesTableBody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- USERS SECTION -->
+        <section id="pane-users" class="section-pane">
+            <h2 class="header-title">사용자 관리</h2>
+            <div class="dash-card">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>이름</th>
+                                <th>이메일</th>
+                                <th>학과</th>
+                                <th>역할</th>
+                                <th>대학원생</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- SETTINGS SECTION -->
+        <section id="pane-settings" class="section-pane">
+            <h2 class="header-title">시스템 설정</h2>
+            <div class="dash-card" style="max-width: 700px;">
+                <form id="configForm" onsubmit="event.preventDefault(); saveConfig();">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">슬롯 단위(분)</label>
+                            <select class="form-select" id="cfg_slot_duration">
+                                <option value="30">30분</option>
+                                <option value="60">60분</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">인당 일일 최대 예약(시간)</label>
+                            <input type="number" class="form-control" id="cfg_max_hours_per_day" min="1" max="24">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold">운영시간</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <select class="form-select" id="cfg_operating_open" style="width: 120px;"></select>
+                            <span>~</span>
+                            <select class="form-select" id="cfg_operating_close" style="width: 120px;"></select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">주말 예약 제한</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="cfg_exclude_weekends">
+                                <label class="form-check-label" for="cfg_exclude_weekends">주말 예약 불가</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">공휴일 예약 제한</label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="cfg_exclude_holidays">
+                                <label class="form-check-label" for="cfg_exclude_holidays">공휴일 예약 불가</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold">예약 가능 최대 미래 일수</label>
+                        <input type="number" class="form-control" id="cfg_max_advance_days" min="1" max="30">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label small fw-bold">공휴일 목록 (JSON 날짜 배열)</label>
+                        <input type="text" class="form-control" id="cfg_holidays_json" placeholder='["2026-06-06", "2026-08-15"]'>
+                    </div>
+
+                    <!-- Exam period mode toggle -->
+                    <div class="mb-5 p-3 rounded-3" style="background: rgba(29,36,117,0.04); border: 1px solid var(--hy-blue-soft);">
+                        <label class="form-label fw-bold text-primary mb-1">🚨 시험 기간 예약 모드 (Exam Period Mode)</label>
+                        <div class="text-muted small mb-2">활성화 시 일일 제한 시간이 자동으로 새벽 2시간, 주간 3시간(인당 총 5시간)으로 개별 적용되어 예약이 진행됩니다.</div>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" id="cfg_is_exam_period">
+                            <label class="form-check-label fw-bold" for="cfg_is_exam_period" id="examPeriodLabel">시험 기간 모드 비활성</label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">설정 저장</button>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Cancellation Reason Modal -->
+    <div class="modal fade" id="cancelModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold">⚠️ 예약을 취소하시겠습니까?</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-secondary small mb-3">예약을 취소하면 해당 사용자에게 즉시 취소 안내 알림과 아래 적힌 사유가 전달됩니다.</p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">취소 사유 입력</label>
+                        <textarea class="form-control" id="cancelReasonInput" rows="3" placeholder="예: 해당 날짜에 센터 정기 정비가 예정되어 있습니다."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    <button type="button" class="btn btn-danger" id="confirmCancelBtn">취소 실행</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notice Add/Edit Modal -->
+    <div class="modal fade" id="noticeModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" id="noticeModalTitle">공지사항 관리</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="noticeModalId">
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">제목</label>
+                        <input type="text" class="form-control" id="noticeTitleInput" placeholder="공지 제목을 입력하세요.">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold">내용</label>
+                        <textarea class="form-control" id="noticeContentInput" rows="5" placeholder="공지 상세 내용을 입력하세요."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" onclick="saveNotice()">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const isSuperAdmin = {{ 'true' if user.role.value == 'super_admin' else 'false' }};
+        const currentUserId = {{ user.id }};
+        let configData = {};
+
+        // Sidebar Navigation
+        document.querySelectorAll('.sidebar .nav-link[data-target]').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelectorAll('.sidebar .nav-link').forEach(l => l.classList.remove('active'));
+                this.classList.add('active');
+                
+                const target = this.dataset.target;
+                document.querySelectorAll('.section-pane').forEach(pane => pane.classList.remove('active'));
+                document.getElementById('pane-' + target).classList.add('active');
+
+                // Load appropriate data on view switch
+                if (target === 'dashboard') loadDashboard();
+                else if (target === 'reservations') loadReservations();
+                else if (target === 'notices') loadNotices();
+                else if (target === 'users') loadUsers();
+                else if (target === 'settings') loadSettingsForm();
+            });
+        });
+
+        // Initialize date picker in reservations
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const y = today.getFullYear();
+            const m = String(today.getMonth() + 1).padStart(2, '0');
+            const d = String(today.getDate()).padStart(2, '0');
+            document.getElementById('searchDate').value = `${y}-${m}-${d}`;
+            
+            // Build hour select boxes for configuration
+            const openSel = document.getElementById('cfg_operating_open');
+            const closeSel = document.getElementById('cfg_operating_close');
+            let opts = '';
+            for (let i = 0; i <= 24; i++) {
+                const h = String(i).padStart(2, '0') + ':00';
+                opts += `<option value="${h}">${h}</option>`;
+            }
+            openSel.innerHTML = opts;
+            closeSel.innerHTML = opts;
+
+            // Load dashboard data initially
+            loadDashboard();
+        });
+
+        async function api(path, opts = {}) {
+            const r = await fetch(path, { credentials: 'include', ...opts });
+            if (r.status === 401) { window.location = '/login'; return null; }
+            if (r.status === 403) { alert('권한이 없습니다.'); return null; }
+            if (!r.ok) { try { const e = await r.json(); alert(e.detail || '오류'); } catch(_){ alert('오류'); } return null; }
+            return r.status === 204 ? null : r.json();
+        }
+
+        // --- DASHBOARD SECTION LOGIC ---
+        async function loadDashboard() {
+            const stats = await api('/api/admin/stats');
+            const config = await api('/api/admin/config');
+            if (!stats || !config) return;
+
+            document.getElementById('statTodayCount').textContent = stats.today_count + '건';
+            document.getElementById('statTotalCount').textContent = stats.total_count + '건';
+            
+            const isExamCfg = config.find(c => c.key === 'is_exam_period');
+            const isExam = isExamCfg && isExamCfg.value.toLowerCase() === 'true';
+            document.getElementById('statExamMode').innerHTML = isExam ? 
+                '<span class="text-danger fw-bold">ON (활성화)</span>' : '<span class="text-secondary">OFF (비활성화)</span>';
+
+            const roomStatsGrid = document.getElementById('roomStatsGrid');
+            roomStatsGrid.innerHTML = stats.by_room.map(item => `
+                <div class="col-md-3 mb-3">
+                    <div class="p-3 border rounded-3 text-center bg-light">
+                        <div class="text-muted small fw-bold mb-1">${item.room}</div>
+                        <div class="fs-4 fw-bold text-primary">${item.count}회</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- RESERVATIONS SECTION LOGIC ---
+        async function loadReservations() {
+            const d = document.getElementById('searchDate').value;
+            const q = d ? `?date=${d}` : '';
+            const data = await api('/api/admin/reservations' + q);
+            if (!data) return;
+
+            const tbody = document.getElementById('reservationsTableBody');
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">예약 데이터가 존재하지 않습니다.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(r => {
+                const formattedTime = `${r.start_time.slice(0, 10)} ${r.start_time.slice(11, 16)} ~ ${r.end_time.slice(11, 16)}`;
+                let statusBadge = '';
+                let actionBtn = '';
+                
+                if (r.status === 'confirmed') {
+                    statusBadge = '<span class="badge-confirmed">확정됨</span>';
+                    actionBtn = `<button class="btn btn-outline-danger btn-sm" onclick="openCancelModal(${r.id})">예약 취소</button>`;
+                } else if (r.status === 'cancelled') {
+                    const byAdmin = r.cancelled_by_admin ? ' (관리자)' : ' (사용자)';
+                    statusBadge = `<span class="badge-cancelled" title="${r.cancel_reason || ''}">취소됨${byAdmin}</span>`;
+                    if (r.cancel_reason) {
+                        actionBtn = `<span class="small text-muted d-block text-truncate" style="max-width: 180px;" title="${r.cancel_reason}">${r.cancel_reason}</span>`;
+                    } else {
+                        actionBtn = '<span class="small text-muted">-</span>';
+                    }
+                }
+
+                return `
+                    <tr>
+                        <td><strong>#${r.id}</strong></td>
+                        <td>${formattedTime}</td>
+                        <td><span class="badge bg-secondary" style="border-radius:6px;">${r.room_name}</span></td>
+                        <td>
+                            <div class="fw-bold">${r.user_name}</div>
+                            <div class="text-muted small" style="font-size:0.75rem;">${r.user_email}</div>
+                        </td>
+                        <td>${r.user_dept}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actionBtn}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        let pendingCancelId = null;
+        function openCancelModal(id) {
+            pendingCancelId = id;
+            document.getElementById('cancelReasonInput').value = '';
+            new bootstrap.Modal(document.getElementById('cancelModal')).show();
+        }
+
+        document.getElementById('confirmCancelBtn').onclick = async () => {
+            if (!pendingCancelId) return;
+            const reason = document.getElementById('cancelReasonInput').value.trim();
+            const body = { reason: reason || '관리자에 의해 취소되었습니다.' };
+            
+            await api(`/api/admin/reservations/${pendingCancelId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            
+            bootstrap.Modal.getInstance(document.getElementById('cancelModal')).hide();
+            pendingCancelId = null;
+            loadReservations();
+        };
+
+        // --- NOTICES SECTION LOGIC ---
+        async function loadNotices() {
+            const data = await api('/api/admin/notices');
+            if (!data) return;
+
+            const tbody = document.getElementById('noticesTableBody');
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">등록된 공지사항이 없습니다.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(n => {
+                const titleEsc = escapeHtml(n.title);
+                const contentEsc = escapeHtml(n.content);
+                const formatContent = contentEsc.length > 50 ? contentEsc.slice(0, 50) + '...' : contentEsc;
+                const statusBadge = n.is_active ? 
+                    '<span class="badge bg-success" style="border-radius:6px;">노출중</span>' : 
+                    '<span class="badge bg-secondary" style="border-radius:6px;">삭제됨</span>';
+                
+                let actions = '';
+                if (n.is_active) {
+                    actions = `
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openNoticeModal(${n.id}, '${titleEsc.replace(/'/g, "\\'")}', '${contentEsc.replace(/'/g, "\\'")}')">수정</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteNotice(${n.id})">삭제</button>
+                    `;
+                } else {
+                    actions = '<span class="text-muted small">-</span>';
+                }
+
+                return `
+                    <tr>
+                        <td><strong>${n.id}</strong></td>
+                        <td class="fw-bold">${titleEsc}</td>
+                        <td class="text-secondary small" style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${contentEsc}">${formatContent}</td>
+                        <td>${n.created_at.slice(0, 10)}</td>
+                        <td>${statusBadge}</td>
+                        <td>${actions}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function openNoticeModal(id = null, title = '', content = '') {
+            document.getElementById('noticeModalId').value = id || '';
+            document.getElementById('noticeTitleInput').value = title;
+            document.getElementById('noticeContentInput').value = content;
+            document.getElementById('noticeModalTitle').textContent = id ? '공지사항 수정' : '신규 공지사항 등록';
+            new bootstrap.Modal(document.getElementById('noticeModal')).show();
+        }
+
+        async function saveNotice() {
+            const id = document.getElementById('noticeModalId').value;
+            const title = document.getElementById('noticeTitleInput').value.trim();
+            const content = document.getElementById('noticeContentInput').value.trim();
+            
+            if (!title || !content) {
+                alert('제목과 내용을 모두 입력해 주세요.');
+                return;
+            }
+
+            const body = { title, content };
+            let res = null;
+
+            if (id) {
+                // Update
+                res = await api(`/api/admin/notices/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+            } else {
+                // Create
+                res = await api('/api/admin/notices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+            }
+
+            if (res) {
+                bootstrap.Modal.getInstance(document.getElementById('noticeModal')).hide();
+                loadNotices();
+            }
+        }
+
+        async function deleteNotice(id) {
+            if (!confirm('해당 공지사항을 비활성화(삭제) 처리하시겠습니까?')) return;
+            await api(`/api/admin/notices/${id}`, { method: 'DELETE' });
+            loadNotices();
+        }
+
+        // --- USERS SECTION LOGIC ---
+        async function loadUsers() {
+            const data = await api('/api/admin/users');
+            if (!data) return;
+
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = data.map(u => {
+                let roleHtml = '';
+                if (isSuperAdmin) {
+                    roleHtml = `
+                        <select class="form-select form-select-sm" style="width:130px;" onchange="updateUserRole(${u.id}, this.value)">
+                            <option value="user" ${u.role === 'user' ? 'selected' : ''}>user</option>
+                            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>admin</option>
+                            <option value="super_admin" ${u.role === 'super_admin' ? 'selected' : ''}>super_admin</option>
+                        </select>
+                    `;
+                } else {
+                    roleHtml = `<span class="badge bg-secondary" style="border-radius:6px;">${u.role}</span>`;
+                }
+
+                return `
+                    <tr>
+                        <td><strong>${u.id}</strong></td>
+                        <td class="fw-bold">${u.name || '-'}</td>
+                        <td>${u.email}</td>
+                        <td>${u.dept}</td>
+                        <td>${roleHtml}</td>
+                        <td>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input user-grad-switch" type="checkbox" data-id="${u.id}" ${u.is_graduate ? 'checked' : ''}>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Register switch event listeners
+            tbody.querySelectorAll('.user-grad-switch').forEach(cb => {
+                cb.addEventListener('change', async function() {
+                    const uid = this.dataset.id;
+                    const isGraduate = this.checked;
+                    await api(`/api/admin/users/${uid}/graduate`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ is_graduate: isGraduate })
+                    });
+                    loadUsers();
+                });
+            });
+        }
+
+        async function updateUserRole(userId, newRole) {
+            if (userId === currentUserId) {
+                if (!confirm('본인의 권한을 스스로 낮추면 관리자 페이지에 접근할 수 없게 됩니다. 변경하시겠습니까?')) {
+                    loadUsers();
+                    return;
+                }
+            }
+            await api(`/api/admin/users/${userId}/role`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role: newRole })
+            });
+            loadUsers();
+        }
+
+        // --- SETTINGS SECTION LOGIC ---
+        async function loadSettingsForm() {
+            const data = await api('/api/admin/config');
+            if (!data) return;
+
+            configData = Object.fromEntries(data.map(c => [c.key, c.value]));
+            
+            // Set simple inputs
+            document.getElementById('cfg_slot_duration').value = configData.slot_duration || '30';
+            document.getElementById('cfg_max_hours_per_day').value = configData.max_hours_per_day || '3';
+            document.getElementById('cfg_max_advance_days').value = configData.max_advance_days || '7';
+            document.getElementById('cfg_holidays_json').value = configData.holidays_json || '[]';
+
+            // Set switches
+            const exWknd = ['true','1','yes'].includes((configData.exclude_weekends || 'true').toLowerCase());
+            const exHol = ['true','1','yes'].includes((configData.exclude_holidays || 'true').toLowerCase());
+            const isExam = ['true','1','yes'].includes((configData.is_exam_period || 'false').toLowerCase());
+
+            document.getElementById('cfg_exclude_weekends').checked = exWknd;
+            document.getElementById('cfg_exclude_holidays').checked = exHol;
+            document.getElementById('cfg_is_exam_period').checked = isExam;
+            
+            updateExamLabel(isExam);
+
+            // Set operating hours dropdowns
+            let oh = {};
+            try { oh = JSON.parse(configData.operating_hours || '{}'); } catch(_) {}
+            document.getElementById('cfg_operating_open').value = oh.open || '09:00';
+            document.getElementById('cfg_operating_close').value = oh.close || '24:00';
+        }
+
+        // Toggle Exam period label text on switch change
+        document.getElementById('cfg_is_exam_period').addEventListener('change', function() {
+            updateExamLabel(this.checked);
+        });
+
+        function updateExamLabel(checked) {
+            const label = document.getElementById('examPeriodLabel');
+            if (checked) {
+                label.textContent = '시험 기간 모드 활성화 중';
+                label.className = 'form-check-label fw-bold text-danger animate-pulse';
+            } else {
+                label.textContent = '시험 기간 모드 비활성';
+                label.className = 'form-check-label fw-bold text-secondary';
+            }
+        }
+
+        async function saveConfig() {
+            const cfg = {};
+            cfg.slot_duration = document.getElementById('cfg_slot_duration').value;
+            cfg.max_hours_per_day = document.getElementById('cfg_max_hours_per_day').value;
+            cfg.max_advance_days = document.getElementById('cfg_max_advance_days').value;
+            cfg.holidays_json = document.getElementById('cfg_holidays_json').value;
+
+            cfg.exclude_weekends = document.getElementById('cfg_exclude_weekends').checked ? 'true' : 'false';
+            cfg.exclude_holidays = document.getElementById('cfg_exclude_holidays').checked ? 'true' : 'false';
+            cfg.is_exam_period = document.getElementById('cfg_is_exam_period').checked ? 'true' : 'false';
+
+            const openVal = document.getElementById('cfg_operating_open').value;
+            const closeVal = document.getElementById('cfg_operating_close').value;
+            cfg.operating_hours = JSON.stringify({ open: openVal, close: closeVal });
+
+            const res = await api('/api/admin/config', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ config: cfg })
+            });
+
+            if (res) {
+                alert('설정이 성공적으로 저장되었습니다.');
+                loadSettingsForm();
+            }
+        }
+    </script>
+</body>
+</html>

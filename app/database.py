@@ -25,6 +25,8 @@ async def init_db():
         await conn.run_sync(_add_billed_end_time_if_missing)
         # users.is_graduate 컬럼 추가
         await conn.run_sync(_add_is_graduate_if_missing)
+        # reservations 신규 취소 관련 컬럼 추가
+        await conn.run_sync(_add_reservation_cancel_columns_if_missing)
 
     from app.seed import seed_db
     await seed_db()
@@ -52,3 +54,20 @@ def _add_is_graduate_if_missing(conn):
             conn.execute(text("ALTER TABLE users ADD COLUMN is_graduate BOOLEAN DEFAULT 0"))
     except Exception:
         pass
+
+
+def _add_reservation_cancel_columns_if_missing(conn):
+    """reservations 테이블에 cancel_reason, cancelled_by_admin, user_notified 컬럼이 없으면 추가."""
+    from sqlalchemy import text
+    try:
+        r = conn.execute(text("PRAGMA table_info(reservations)"))
+        cols = [row[1] for row in r.fetchall()]
+        if "cancel_reason" not in cols:
+            conn.execute(text("ALTER TABLE reservations ADD COLUMN cancel_reason VARCHAR(500)"))
+        if "cancelled_by_admin" not in cols:
+            conn.execute(text("ALTER TABLE reservations ADD COLUMN cancelled_by_admin BOOLEAN DEFAULT 0"))
+        if "user_notified" not in cols:
+            conn.execute(text("ALTER TABLE reservations ADD COLUMN user_notified BOOLEAN DEFAULT 0"))
+    except Exception:
+        pass
+

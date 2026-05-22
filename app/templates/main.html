@@ -99,9 +99,6 @@
         .modal-content { border-radius: 20px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.12); }
         .modal-header { border-bottom: 1px solid #eee; }
         .modal-footer .btn { border-radius: 12px; padding: 10px 20px; transition: all 0.2s ease; }
-
-        .offcanvas { border-radius: 16px 0 0 16px; box-shadow: -4px 0 24px rgba(0,0,0,0.08); }
-        .offcanvas .nav-tabs .nav-link { border-radius: 10px 10px 0 0; transition: color 0.2s ease; }
         .cancel-btn { border-radius: 10px; transition: all 0.2s ease; }
         #roomBar::-webkit-scrollbar, #dateBar::-webkit-scrollbar { height: 6px; }
         #roomBar::-webkit-scrollbar-thumb, #dateBar::-webkit-scrollbar-thumb { background: #d0d3e8; border-radius: 3px; }
@@ -114,7 +111,7 @@
             <a class="navbar-brand" href="/main">스터디룸 예약</a>
             <div class="d-flex align-items-center">
                 {% if user.role.value in ['admin', 'super_admin'] %}
-                <button class="btn btn-outline-light btn-sm me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#adminPanel">관리자</button>
+                <a class="btn btn-outline-light btn-sm me-2 fw-bold" href="/admin">관리자 페이지</a>
                 {% endif %}
                 <span class="text-user me-3">{{ user.name }} ({{ user.dept }})</span>
                 <a href="/logout" class="btn btn-outline-light btn-sm">로그아웃</a>
@@ -122,25 +119,31 @@
         </div>
     </nav>
     <main class="container">
+        <!-- 공지사항 카드 -->
+        <div id="noticeBoard" class="main-card rounded-4 p-4 mb-4" style="background: #fff; box-shadow: 0 2px 16px rgba(0,0,0,0.06); display: none;">
+            <h6 class="section-title mb-3" style="color: var(--hy-blue); font-weight: 700;"><span class="me-2">📢</span>공지사항</h6>
+            <div id="noticeContent" class="small"></div>
+        </div>
+
         <div class="main-card rounded-4 p-4 p-md-5 mb-4" style="background: #fff; box-shadow: 0 2px 16px rgba(0,0,0,0.06);">
             <h5 class="section-title">예약하기</h5>
             <div class="mb-2">
-            <label class="form-label small">방 선택</label>
-            <div id="roomBar" class="d-flex overflow-auto gap-2 pb-2" style="min-height: 44px;"></div>
-        </div>
-        <div class="mb-2">
-            <label class="form-label small">날짜 선택</label>
-            <div id="dateBar" class="d-flex overflow-auto gap-2 pb-2" style="min-height: 60px;"></div>
-        </div>
-        <p class="small text-muted mb-2" id="remainingHours">남은 예약 가능 시간: -</p>
-        <div class="mb-3">
-            <label class="form-label small">시간 선택 (시작~끝 선택, 최대 3시간)</label>
-            <div id="slotGrid" class="d-flex flex-wrap gap-2"></div>
-            <p id="slotEmpty" class="text-muted small mt-2" style="display:none;">해당 날짜는 예약할 수 없습니다.</p>
-            <div id="reserveBtnArea" class="mt-2" style="display:none;">
-                <button type="button" class="btn btn-primary" id="doReserveBtn">예약하기</button>
+                <label class="form-label small">방 선택</label>
+                <div id="roomBar" class="d-flex overflow-auto gap-2 pb-2" style="min-height: 44px;"></div>
             </div>
-        </div>
+            <div class="mb-2">
+                <label class="form-label small">날짜 선택</label>
+                <div id="dateBar" class="d-flex overflow-auto gap-2 pb-2" style="min-height: 60px;"></div>
+            </div>
+            <p class="small text-muted mb-2 fw-bold" id="remainingHours">남은 예약 가능 시간: -</p>
+            <div class="mb-3">
+                <label class="form-label small">시간 선택 (시작~끝 선택, 최대 3시간)</label>
+                <div id="slotGrid" class="d-flex flex-wrap gap-2"></div>
+                <p id="slotEmpty" class="text-muted small mt-2" style="display:none;">해당 날짜는 예약할 수 없습니다.</p>
+                <div id="reserveBtnArea" class="mt-2" style="display:none;">
+                    <button type="button" class="btn btn-primary" id="doReserveBtn">예약하기</button>
+                </div>
+            </div>
         </div>
         <div class="main-card rounded-4 p-4 p-md-5" style="background: #fff; box-shadow: 0 2px 16px rgba(0,0,0,0.06);">
             <div class="d-flex align-items-center justify-content-between mb-3">
@@ -163,6 +166,28 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
                     <button type="button" class="btn btn-primary" id="confirmBtn">예약하기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 알림 모달 -->
+    <div class="modal fade" id="notificationModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border: none; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
+                <div class="modal-header bg-danger text-white border-0" style="padding: 20px 24px;">
+                    <h5 class="modal-title fw-bold">⚠️ 예약 취소 안내</h5>
+                </div>
+                <div class="modal-body" style="padding: 24px;">
+                    <p class="text-secondary mb-3">관리자에 의해 예약이 취소되었습니다. 상세 내용은 다음과 같습니다.</p>
+                    <div class="p-3 rounded-3 mb-3" style="background: #f8f9fa; border: 1px solid #e9ecef;">
+                        <div class="mb-2"><strong>장소:</strong> <span id="notifRoomName" class="fw-bold text-dark"></span></div>
+                        <div class="mb-2"><strong>시간:</strong> <span id="notifTimeRange"></span></div>
+                        <div class="mb-0"><strong>취소 사유:</strong> <span id="notifReason" class="text-danger fw-bold"></span></div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0" style="padding: 16px 24px;">
+                    <button type="button" class="btn btn-danger w-100 fw-bold" id="notifConfirmBtn" style="border-radius: 12px; padding: 12px;">확인하였습니다</button>
                 </div>
             </div>
         </div>
@@ -198,188 +223,154 @@
                 const distance = targetLeft - startLeft;
                 const duration = 420;
                 const startTime = performance.now();
-                function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
-                function step(now) {
+                function animate(now) {
                     const elapsed = now - startTime;
                     const progress = Math.min(elapsed / duration, 1);
-                    container.scrollLeft = startLeft + distance * easeOutCubic(progress);
-                    if (progress < 1) requestAnimationFrame(step);
+                    const ease = progress < 0.5 ? 2 * progress * progress : -1 + (4 - 2 * progress) * progress;
+                    container.scrollLeft = startLeft + distance * ease;
+                    if (progress < 1) requestAnimationFrame(animate);
                 }
-                requestAnimationFrame(step);
-            }
-
-            function selectRoom(id, clickedEl) {
-                selectedRoomId = id;
-                const bar = document.getElementById('roomBar');
-                bar.querySelectorAll('button').forEach(b => {
-                    const isSelected = +b.dataset.roomId === id;
-                    b.classList.toggle('btn-primary', isSelected);
-                    b.classList.toggle('btn-outline-primary', !isSelected);
-                });
-                if (clickedEl) scrollToCenter(bar, clickedEl);
-                if (selectedDate) loadSlots();
-                loadRemaining();
-            }
-
-            async function loadRooms() {
-                const data = await api('/api/rooms');
-                if (!data || !data.length) return;
-                rooms = data;
-                const bar = document.getElementById('roomBar');
-                bar.innerHTML = '';
-                data.forEach((r, i) => {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = i === 0 ? 'btn btn-primary btn-sm flex-shrink-0 px-3' : 'btn btn-outline-primary btn-sm flex-shrink-0 px-3';
-                    btn.textContent = r.name;
-                    btn.dataset.roomId = r.id;
-                    btn.onclick = (e) => selectRoom(r.id, e.currentTarget);
-                    bar.appendChild(btn);
-                });
-                selectedRoomId = data[0].id;
-                selectedDate && loadSlots();
-                loadRemaining();
+                requestAnimationFrame(animate);
             }
 
             function buildDateBar() {
-                const today = new Date();
                 const bar = document.getElementById('dateBar');
                 bar.innerHTML = '';
-                const maxDays = appConfig.max_advance_days || 7;
-                const excludeWknd = appConfig.exclude_weekends !== false;
-                const excludeHol = appConfig.exclude_holidays !== false;
-                const holidaysSet = new Set(appConfig.holidays || []);
-                let firstAdded = true;
-                for (let i = 0; i < maxDays; i++) {
+                const today = new Date();
+                let count = 0, i = 0;
+                const limit = appConfig.max_advance_days;
+                const isExam = false; 
+                while (count < limit && i < 30) {
                     const d = new Date(today);
                     d.setDate(today.getDate() + i);
-                    if (excludeWknd && (d.getDay() === 0 || d.getDay() === 6)) continue;
                     const ds = dateStr(d);
-                    if (excludeHol && holidaysSet.has(ds)) continue;
-                    const month = d.getMonth() + 1;
-                    const dayNum = d.getDate();
-                    const dayName = DAYS[d.getDay()];
-                    const label = `${month} . ${dayNum} (${dayName})`;
+                    const dayOfWeek = d.getDay();
+                    const isWknd = (dayOfWeek === 0 || dayOfWeek === 6);
+                    const isHol = appConfig.holidays.includes(ds);
+                    
+                    if (appConfig.exclude_weekends && isWknd) { i++; continue; }
+                    if (appConfig.exclude_holidays && isHol) { i++; continue; }
+                    
                     const btn = document.createElement('button');
                     btn.type = 'button';
-                    btn.className = 'btn btn-outline-primary btn-sm flex-shrink-0 px-3';
+                    btn.className = 'btn btn-sm btn-outline-primary flex-shrink-0';
+                    const m = d.getMonth() + 1;
+                    const dateVal = d.getDate();
+                    const label = `${m}/${dateVal}(${DAYS[dayOfWeek]})`;
                     btn.textContent = label;
                     btn.dataset.date = ds;
-                    if (firstAdded) {
-                        selectedDate = ds;
+                    btn.onclick = function() {
+                        selectedDate = this.dataset.date;
+                        bar.querySelectorAll('button').forEach(b => {
+                            b.classList.remove('btn-primary');
+                            b.classList.add('btn-outline-primary');
+                        });
+                        this.classList.remove('btn-outline-primary');
+                        this.classList.add('btn-primary');
+                        scrollToCenter(bar, this);
+                        selectedStartIdx = -1; selectedEndIdx = -1;
+                        document.getElementById('reserveBtnArea').style.display = 'none';
+                        loadSlots();
+                        loadRemaining();
+                    };
+                    if (count === 0) {
                         btn.classList.remove('btn-outline-primary');
                         btn.classList.add('btn-primary');
-                        firstAdded = false;
-                    }
-                    btn.onclick = () => {
-                        bar.querySelectorAll('button').forEach(b => { b.classList.remove('btn-primary'); b.classList.add('btn-outline-primary'); });
-                        btn.classList.remove('btn-outline-primary'); btn.classList.add('btn-primary');
                         selectedDate = ds;
-                        scrollToCenter(bar, btn);
-                        loadSlots(); loadRemaining(); loadMyReservations();
-                    };
+                    }
                     bar.appendChild(btn);
+                    count++;
+                    i++;
                 }
             }
 
-            let selectedStartIdx = -1, selectedEndIdx = -1, slotsData = [];
-            const MAX_SLOTS = 6;
+            async function loadRooms() {
+                const list = await api('/api/rooms');
+                if (!list) return;
+                rooms = list;
+                const bar = document.getElementById('roomBar');
+                bar.innerHTML = rooms.map((r, idx) => {
+                    const active = idx === 0 ? 'btn-primary' : 'btn-outline-primary';
+                    if (idx === 0) selectedRoomId = r.id;
+                    return `<button type="button" class="btn btn-sm ${active} flex-shrink-0" data-id="${r.id}">${r.name}</button>`;
+                }).join('');
+                bar.querySelectorAll('button').forEach(btn => btn.onclick = function() {
+                    selectedRoomId = parseInt(this.dataset.id);
+                    bar.querySelectorAll('button').forEach(b => {
+                        b.classList.remove('btn-primary');
+                        b.classList.add('btn-outline-primary');
+                    });
+                    this.classList.remove('btn-outline-primary');
+                    this.classList.add('btn-primary');
+                    scrollToCenter(bar, this);
+                    selectedStartIdx = -1; selectedEndIdx = -1;
+                    document.getElementById('reserveBtnArea').style.display = 'none';
+                    loadSlots();
+                });
+            }
 
+            let slotsData = [], selectedStartIdx = -1, selectedEndIdx = -1;
             async function loadSlots() {
-                selectedStartIdx = -1; selectedEndIdx = -1;
-                document.getElementById('reserveBtnArea').style.display = 'none';
-                if (!selectedDate || !selectedRoomId) return;
-                const data = await api(`/api/slots?date=${selectedDate}&room_id=${selectedRoomId}`);
+                if (!selectedRoomId || !selectedDate) return;
+                const data = await api(`/api/slots?room_id=${selectedRoomId}&date=${selectedDate}`);
                 const grid = document.getElementById('slotGrid');
                 const empty = document.getElementById('slotEmpty');
-                if (!data || !data.length) { slotsData = []; grid.innerHTML = ''; empty.style.display = 'block'; return; }
+                if (!data) return;
                 slotsData = data;
+                if (!slotsData.length) {
+                    grid.innerHTML = '';
+                    empty.style.display = 'block';
+                    return;
+                }
                 empty.style.display = 'none';
-                grid.innerHTML = '';
-                data.forEach((s, idx) => {
-                    const start = s.start.slice(11,16);
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    let baseClass = 'btn btn-outline-secondary slot-btn';
-                    let text = start;
-                    // occupied && !occupied_by_others => 내 예약 (mine 우선, 한도 초과 회색 로직에 덮이지 않도록)
-                    const isMine = s.mine || (s.occupied && !s.occupied_by_others);
-                    if (isMine) {
-                        baseClass += ' slot-mine pe-none';
-                        text = start + ' · 나의 예약';
-                    } else if (s.occupied_by_others) {
-                        baseClass += ' slot-others pe-none';
-                        text = start;
-                    } else if (!s.available) {
-                        baseClass += ' slot-limit pe-none';
-                        text = start;
-                    }
-                    btn.className = baseClass;
-                    btn.textContent = text;
-                    btn.dataset.idx = idx;
-                    btn.dataset.start = s.start;
-                    btn.dataset.end = s.end;
-                    btn.dataset.available = s.available ? '1' : '0';
-                    btn.dataset.mine = isMine ? '1' : '0';
-                    btn.dataset.occupiedByOthers = s.occupied_by_others ? '1' : '0';
-                    if (s.available) btn.onclick = () => onSlotClick(idx);
-                    grid.appendChild(btn);
+                grid.innerHTML = slotsData.map((s, idx) => {
+                    const startStr = s.start.slice(11, 16);
+                    let cls = 'btn-outline-secondary';
+                    let disabled = '';
+                    if (s.mine) { cls = 'slot-mine'; disabled = 'pe-none'; }
+                    else if (s.occupied) { cls = 'slot-others'; disabled = 'pe-none'; }
+                    else if (!s.available) { cls = 'slot-limit'; disabled = 'pe-none'; }
+                    return `<button type="button" class="btn slot-btn ${cls}" ${disabled} data-idx="${idx}">${startStr}</button>`;
+                }).join('');
+                grid.querySelectorAll('button:not(.pe-none)').forEach(btn => btn.onclick = function() {
+                    const idx = parseInt(this.dataset.idx);
+                    handleSlotSelect(idx);
                 });
+                updateSlotStyles();
             }
 
             function updateSlotStyles() {
                 const grid = document.getElementById('slotGrid');
-                grid.querySelectorAll('.slot-btn').forEach((btn, idx) => {
-                    const avail = btn.dataset.available === '1';
-                    const mine = btn.dataset.mine === '1';
-                    const others = btn.dataset.occupiedByOthers === '1';
-                    btn.classList.remove('btn-primary', 'btn-outline-primary', 'btn-secondary', 'btn-outline-secondary', 'opacity-50', 'pe-none', 'slot-mine', 'slot-others', 'slot-limit');
-                    const timeStr = btn.dataset.start?.slice(11,16) || '';
-                    if (mine) {
-                        btn.classList.add('slot-mine', 'pe-none');
-                        btn.textContent = timeStr + ' · 나의 예약';
-                        return;
-                    }
-                    if (others) {
-                        btn.classList.add('slot-others', 'pe-none');
-                        btn.textContent = timeStr;
-                        return;
-                    }
-                    if (!avail) {
-                        btn.classList.add('slot-limit', 'pe-none');
-                        btn.textContent = timeStr;
-                        return;
-                    }
-                    if (selectedStartIdx >= 0 && selectedEndIdx >= 0) {
-                        const lo = Math.min(selectedStartIdx, selectedEndIdx);
-                        const hi = Math.max(selectedStartIdx, selectedEndIdx);
-                        if (idx >= lo && idx <= hi) {
-                            btn.classList.add('btn-primary');
-                        } else {
-                            btn.classList.add('btn-outline-secondary');
-                        }
-                    } else if (selectedStartIdx >= 0 && idx === selectedStartIdx) {
+                const buttons = grid.querySelectorAll('button:not(.pe-none)');
+                const start = Math.min(selectedStartIdx, selectedEndIdx);
+                const end = Math.max(selectedStartIdx, selectedEndIdx);
+                buttons.forEach(btn => {
+                    const idx = parseInt(btn.dataset.idx);
+                    btn.classList.remove('btn-primary', 'btn-outline-secondary');
+                    if (selectedStartIdx >= 0 && selectedEndIdx >= 0 && idx >= start && idx <= end) {
+                        btn.classList.add('btn-primary');
+                    } else if (idx === selectedStartIdx) {
                         btn.classList.add('btn-primary');
                     } else {
                         btn.classList.add('btn-outline-secondary');
                     }
-                    btn.textContent = timeStr;
                 });
             }
 
-            function onSlotClick(idx) {
-                const grid = document.getElementById('slotGrid');
-                if (slotsData[idx] && !slotsData[idx].available) return;
+            function handleSlotSelect(idx) {
+                const MAX_SLOTS = 6;
                 if (selectedStartIdx < 0) {
                     selectedStartIdx = idx;
                     selectedEndIdx = -1;
+                } else if (selectedEndIdx >= 0) {
+                    selectedStartIdx = idx;
+                    selectedEndIdx = -1;
                 } else {
-                    const start = selectedStartIdx, end = idx;
-                    if (end < start) {
+                    const start = Math.min(selectedStartIdx, idx);
+                    const end = Math.max(selectedStartIdx, idx);
+                    if (end === start) {
                         selectedStartIdx = idx;
                         selectedEndIdx = -1;
-                    } else if (end === start) {
-                        selectedEndIdx = idx;
                     } else if (end - start + 1 > MAX_SLOTS) {
                         selectedStartIdx = idx;
                         selectedEndIdx = -1;
@@ -402,7 +393,14 @@
                 if (!selectedDate) return;
                 const data = await api(`/api/slots/remaining?date=${selectedDate}`);
                 const el = document.getElementById('remainingHours');
-                const text = data ? `남은 예약 가능 시간: ${data.remaining_hours}시간` : '남은 예약 가능 시간: -';
+                let text = '남은 예약 가능 시간: -';
+                if (data) {
+                    if (data.is_exam_period) {
+                        text = `남은 예약 가능 시간: 총 ${data.remaining_hours}시간 (주간: ${data.remaining_day_hours}시간 / 새벽: ${data.remaining_dawn_hours}시간)`;
+                    } else {
+                        text = `남은 예약 가능 시간: ${data.remaining_hours}시간`;
+                    }
+                }
                 el.textContent = text;
                 const isZero = data && (data.remaining_hours === 0 || parseFloat(data.remaining_hours) <= 0);
                 if (isZero) {
@@ -512,6 +510,62 @@
                 }));
             }
 
+            async function loadNotices() {
+                const data = await api('/api/notices');
+                const board = document.getElementById('noticeBoard');
+                const content = document.getElementById('noticeContent');
+                if (!data || data.length === 0) {
+                    board.style.display = 'none';
+                    return;
+                }
+                board.style.display = 'block';
+                content.innerHTML = data.map(n => {
+                    const formattedDate = n.created_at.slice(0, 10);
+                    return `
+                        <div class="mb-3 pb-3 border-bottom" style="border-color: #f0f1f5 !important;">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold text-dark">${n.title}</span>
+                                <span class="text-muted small" style="font-size: 0.75rem;">${formattedDate}</span>
+                            </div>
+                            <div class="text-secondary small" style="white-space: pre-wrap; line-height: 1.5;">${n.content}</div>
+                        </div>
+                    `;
+                }).join('');
+                if (content.lastElementChild) {
+                    content.lastElementChild.classList.remove('border-bottom');
+                    content.lastElementChild.classList.remove('pb-3');
+                    content.lastElementChild.classList.remove('mb-3');
+                }
+            }
+
+            let notificationQueue = [];
+            async function checkNotifications() {
+                const data = await api('/api/notifications');
+                if (data && data.length > 0) {
+                    notificationQueue = data;
+                    showNextNotification();
+                }
+            }
+
+            function showNextNotification() {
+                if (notificationQueue.length === 0) return;
+                const notif = notificationQueue[0];
+                document.getElementById('notifRoomName').textContent = notif.room_name;
+                const dateStr = notif.start_time.slice(0, 10);
+                const timeRange = `${dateStr} ${notif.start_time.slice(11, 16)} ~ ${notif.end_time.slice(11, 16)}`;
+                document.getElementById('notifTimeRange').textContent = timeRange;
+                document.getElementById('notifReason').textContent = notif.cancel_reason || '사유가 입력되지 않았습니다.';
+                
+                const myModal = new bootstrap.Modal(document.getElementById('notificationModal'));
+                document.getElementById('notifConfirmBtn').onclick = async () => {
+                    await api(`/api/notifications/${notif.id}/read`, { method: 'POST' });
+                    myModal.hide();
+                    notificationQueue.shift();
+                    setTimeout(showNextNotification, 500);
+                };
+                myModal.show();
+            }
+
             document.addEventListener('DOMContentLoaded', async () => {
                 const confirmModal = document.getElementById('confirmModal');
                 if (confirmModal) {
@@ -534,194 +588,10 @@
                 await loadSlots();
                 await loadRemaining();
                 await loadMyReservations();
+                await loadNotices();
+                await checkNotifications();
             });
         })();
     </script>
-
-    {% if user.role.value in ['admin', 'super_admin'] %}
-    <!-- 관리자 패널 -->
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="adminPanel" style="width: 450px;">
-        <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title">관리자</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
-        </div>
-        <div class="offcanvas-body overflow-auto">
-            <ul class="nav nav-tabs mb-3" role="tablist">
-                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabConfig">설정</a></li>
-                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabReservations">예약현황</a></li>
-                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabUsers">사용자</a></li>
-            </ul>
-            <div class="tab-content">
-                <div class="tab-pane active" id="tabConfig">
-                    <div id="configForm"></div>
-                    <button class="btn btn-primary btn-sm mt-2" onclick="saveConfig()">저장</button>
-                </div>
-                <div class="tab-pane" id="tabReservations">
-                    <div class="mb-2">
-                        <input type="date" id="reservDate" class="form-control form-control-sm mb-2">
-                        <button class="btn btn-outline-secondary btn-sm" onclick="loadReservations()">조회</button>
-                    </div>
-                    <div id="reservationsList" class="small"></div>
-                </div>
-                <div class="tab-pane" id="tabUsers">
-                    <div id="usersList"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script>
-        const isSuperAdmin = {{ 'true' if user.role.value == 'super_admin' else 'false' }};
-        const currentUserId = {{ user.id }};
-        let configData = {};
-
-        document.querySelector('#adminPanel').addEventListener('show.bs.offcanvas', () => {
-            loadConfig();
-            const rd = document.getElementById('reservDate');
-            if (rd) {
-                const n = new Date();
-                rd.value = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
-            }
-        });
-        document.querySelector('a[href="#tabReservations"]').addEventListener('shown.bs.tab', loadReservations);
-        document.querySelector('a[href="#tabUsers"]').addEventListener('shown.bs.tab', loadUsers);
-
-        async function api(path, opts = {}) {
-            const r = await fetch(path, { credentials: 'include', ...opts });
-            if (r.status === 401) { window.location = '/login'; return null; }
-            if (r.status === 403) { alert('권한이 없습니다.'); return null; }
-            if (!r.ok) { const e = await r.json(); alert(e.detail || '오류'); return null; }
-            return r.status === 204 ? null : r.json();
-        }
-
-        async function loadConfig() {
-            const data = await api('/api/admin/config');
-            if (!data) return;
-            configData = Object.fromEntries(data.map(c => [c.key, c.value]));
-            let oh = {};
-            try { oh = JSON.parse(configData.operating_hours || '{}'); } catch(_) {}
-            const openVal = oh.open || '09:00';
-            const closeVal = oh.close || '24:00';
-            const hourOpts = Array.from({length: 25}, (_, i) => {
-                const h = String(i).padStart(2,'0') + ':00';
-                return `<option value="${h}" ${openVal===h?'selected':''}>${h}</option>`;
-            }).join('');
-            const closeOpts = Array.from({length: 25}, (_, i) => {
-                const h = String(i).padStart(2,'0') + ':00';
-                return `<option value="${h}" ${closeVal===h?'selected':''}>${h}</option>`;
-            }).join('');
-            const esc = v => String(v||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            const exWknd = ['true','1','yes'].includes((configData.exclude_weekends || 'true').toLowerCase());
-            const exHol = ['true','1','yes'].includes((configData.exclude_holidays || 'true').toLowerCase());
-            const slotVal = esc(configData.slot_duration) || '30';
-            document.getElementById('configForm').innerHTML = `
-                <div class="mb-2">
-                    <label class="form-label small">슬롯 단위(분)</label>
-                    <select class="form-select form-select-sm" id="cfg_slot_duration" style="max-width:120px">
-                        <option value="30" ${slotVal==='30'?'selected':''}>30분</option>
-                        <option value="60" ${slotVal==='60'?'selected':''}>60분</option>
-                    </select>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label small">인당 일일 최대(시간)</label>
-                    <input type="number" class="form-control form-control-sm" id="cfg_max_hours_per_day" value="${esc(configData.max_hours_per_day) || '3'}" min="1" max="12">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label small">운영시간</label>
-                    <div class="d-flex gap-2 align-items-center">
-                        <select class="form-select form-select-sm" id="cfg_operating_open" style="width:90px">${hourOpts}</select>
-                        <span>~</span>
-                        <select class="form-select form-select-sm" id="cfg_operating_close" style="width:90px">${closeOpts}</select>
-                    </div>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label small">주말 제외</label>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="cfg_exclude_weekends" ${exWknd?'checked':''}>
-                        <label class="form-check-label" for="cfg_exclude_weekends">ON: 주말 제외</label>
-                    </div>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label small">공휴일 제외</label>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="cfg_exclude_holidays" ${exHol?'checked':''}>
-                        <label class="form-check-label" for="cfg_exclude_holidays">ON: 공휴일 제외</label>
-                    </div>
-                </div>
-                <div class="mb-2">
-                    <label class="form-label small">예약 가능 최대 일수</label>
-                    <input type="number" class="form-control form-control-sm" id="cfg_max_advance_days" value="${esc(configData.max_advance_days) || '7'}" min="1" max="30">
-                </div>
-                <div class="mb-2">
-                    <label class="form-label small">공휴일 목록(JSON 배열)</label>
-                    <input type="text" class="form-control form-control-sm" id="cfg_holidays_json" value="${esc(configData.holidays_json) || '[]'}" placeholder='["2025-01-01","2025-12-25"]'>
-                </div>
-            `;
-        }
-
-        async function saveConfig() {
-            const cfg = {};
-            const slotSel = document.getElementById('cfg_slot_duration');
-            if (slotSel) cfg.slot_duration = slotSel.value;
-            document.querySelectorAll('#configForm input[type="number"], #configForm input[type="text"]').forEach(inp => {
-                const k = inp.id.replace('cfg_','');
-                if (k !== 'operating_open' && k !== 'operating_close' && k !== 'slot_duration') cfg[k] = inp.value;
-            });
-            const openSel = document.getElementById('cfg_operating_open');
-            const closeSel = document.getElementById('cfg_operating_close');
-            if (openSel && closeSel) {
-                cfg.operating_hours = JSON.stringify({ open: openSel.value, close: closeSel.value });
-            }
-            document.querySelectorAll('#configForm input[type="checkbox"]').forEach(inp => {
-                const k = inp.id.replace('cfg_','');
-                cfg[k] = inp.checked ? 'true' : 'false';
-            });
-            const res = await api('/api/admin/config', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({config: cfg}) });
-            if (res) { alert('저장되었습니다.'); location.reload(); }
-        }
-
-        async function loadReservations() {
-            const d = document.getElementById('reservDate').value;
-            const q = d ? `?date=${d}` : '';
-            const data = await api('/api/admin/reservations' + q);
-            if (!data) return;
-            const el = document.getElementById('reservationsList');
-            el.innerHTML = data.length === 0 ? '<p class="text-muted">예약 없음</p>' :
-                '<table class="table table-sm"><tr><th>시간</th><th>방</th><th>예약자</th><th></th></tr>' +
-                data.map(r => `<tr><td>${r.start_time.slice(0,16)}</td><td>${r.room_name}</td><td>${r.user_name}</td><td><button class="btn btn-outline-danger btn-sm cancel-reservation-btn" data-id="${r.id}">취소</button></td></tr>`).join('') + '</table>';
-            el.querySelectorAll('.cancel-reservation-btn').forEach(btn => btn.addEventListener('click', async () => {
-                if (!confirm('이 예약을 취소하시겠습니까?')) return;
-                await api('/api/admin/reservations/' + btn.dataset.id, { method: 'DELETE' });
-                loadReservations();
-            }));
-        }
-
-        async function loadUsers() {
-            const data = await api('/api/admin/users');
-            if (!data) return;
-            document.getElementById('usersList').innerHTML = '<table class="table table-sm"><tr><th>이름</th><th>학과</th><th>역할</th><th>대학원생</th><th></th></tr>' +
-                data.map(u => `
-                    <tr>
-                        <td>${u.name || '-'}</td>
-                        <td>${u.dept || '-'}</td>
-                        <td>${isSuperAdmin ? `<select class="form-select form-select-sm" style="width:auto" onchange="updateRole(${u.id},this.value)"><option ${u.role==='user'?'selected':''}>user</option><option ${u.role==='admin'?'selected':''}>admin</option><option ${u.role==='super_admin'?'selected':''}>super_admin</option></select>` : u.role}</td>
-                        <td><div class="form-check form-switch"><input class="form-check-input graduate-toggle" type="checkbox" data-id="${u.id}" ${u.is_graduate?'checked':''}></div></td>
-                        <td></td>
-                    </tr>
-                `).join('') + '</table>';
-            document.querySelectorAll('.graduate-toggle').forEach(cb => cb.addEventListener('change', async function() {
-                await api(`/api/admin/users/${this.dataset.id}/graduate`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({is_graduate: this.checked}) });
-                loadUsers();
-            }));
-        }
-
-        async function updateRole(userId, role) {
-            if (isSuperAdmin && userId === currentUserId) {
-                if (!confirm('자신의 권한을 변경하면 관리자 접근 권한을 잃을 수 있습니다. 계속하시겠습니까?')) return;
-            }
-            await api(`/api/admin/users/${userId}/role`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({role}) });
-            loadUsers();
-        }
-    </script>
-    {% endif %}
 </body>
 </html>

@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, DateTime, Enum
+from sqlalchemy import ForeignKey, DateTime, Enum, String, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 import enum
@@ -24,6 +24,9 @@ class Reservation(Base):
     status: Mapped[ReservationStatus] = mapped_column(
         Enum(ReservationStatus), nullable=False, default=ReservationStatus.confirmed
     )
+    cancel_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    cancelled_by_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    user_notified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     user: Mapped["User"] = relationship("User", back_populates="reservations")

@@ -11,6 +11,7 @@ from app.services.config_service import (
     get_slot_duration,
     get_max_hours_per_day,
     get_holidays,
+    get_is_exam_period,
 )
 
 
@@ -21,6 +22,28 @@ def _parse_time(s: str) -> time:
     if h == 24:
         h, m = 23, 59
     return time(h, m)
+
+
+def split_reservation_hours(start: datetime, end: datetime) -> tuple[float, float]:
+    """예약 시간 [start, end]를 새벽(00:00~09:00)과 주간(09:00~24:00)으로 분할하여 각각의 시간(hour)을 반환."""
+    pivot = datetime.combine(start.date(), time(9, 0))
+    
+    dawn_seconds = 0.0
+    day_seconds = 0.0
+    
+    # 새벽 시간대 계산 (start ~ pivot 사이의 겹치는 부분)
+    if start < pivot:
+        dawn_end = min(end, pivot)
+        if start < dawn_end:
+            dawn_seconds = (dawn_end - start).total_seconds()
+        
+    # 주간 시간대 계산 (pivot ~ end 사이의 겹치는 부분)
+    if end > pivot:
+        day_start = max(start, pivot)
+        if day_start < end:
+            day_seconds = (end - day_start).total_seconds()
+        
+    return dawn_seconds / 3600.0, day_seconds / 3600.0
 
 
 async def get_available_slots(
@@ -35,6 +58,7 @@ async def get_available_slots(
     exclude_hol = await get_exclude_holidays(db)
     holidays = await get_holidays(db)
     max_hours = await get_max_hours_per_day(db)
+    is_exam = await get_is_exam_period(db)
 
     # 주말 제외
     if exclude_wknd and target_date.weekday() >= 5:
@@ -118,16 +142,20 @@ async def get_available_slots(
             )
         )
     )
-    user_hours = sum(
-        ((r.billed_end_time or r.end_time) - r.start_time).total_seconds() / 3600
-        for r in user_result.all()
-    )
+    
+    used_dawn = 0.0
+    used_day = 0.0
+    for r in user_result.all():
+        eff_end = r.billed_end_time or r.end_time
+        dawn, day = split_reservation_hours(r.start_time, eff_end)
+        used_dawn += dawn
+        used_day += day
 
     # 각 슬롯에 available, mine, occupied_by_others 부여
     # 현재 시간 이전 슬롯 제외 (오늘 날짜인 경우만, 서버 로컬 시각 기준)
     now = datetime.now()
     out = []
-    can_book_more = user_hours < max_hours
+    
     for slot in slots:
         if target_date == now.date() and slot["end"] <= now:
             continue
@@ -143,6 +171,21 @@ async def get_available_slots(
             slot["start"] < r_end and slot["end"] > r_start
             for r_start, r_end in user_other_room_ranges
         )
+        
+        # 슬롯 단독의 시간 영역 분할
+        slot_dawn, slot_day = split_reservation_hours(slot["start"], slot["end"])
+        
+        if is_exam:
+            # 시험 기간 모드: 새벽 2시간, 주간 3시간, 합계 5시간
+            can_book_more = (
+                (used_dawn + slot_dawn <= 2.0) and
+                (used_day + slot_day <= 3.0) and
+                ((used_dawn + used_day) + (slot_dawn + slot_day) <= 5.0)
+            )
+        else:
+            # 평상시 모드: 전체 총량 검사
+            can_book_more = ((used_dawn + used_day) + (slot_dawn + slot_day) <= max_hours)
+
         occupied_by_others = occupied and not mine
         available = not occupied and can_book_more and not conflict_other_room
         out.append({
@@ -160,8 +203,18 @@ async def get_available_slots(
 async def get_user_remaining_hours(
     db: AsyncSession, user_id: int, target_date: date
 ) -> float:
-    """해당 날짜에 user가 추가로 예약 가능한 시간(시간 단위). 중도 퇴실 시 billed_end_time 사용."""
-    max_hours = await get_max_hours_per_day(db)
+    """하위 호환성용: 총 남은 시간 반환."""
+    res = await get_user_remaining_hours_split(db, user_id, target_date)
+    return res["remaining_hours"]
+
+
+async def get_user_remaining_hours_split(
+    db: AsyncSession, user_id: int, target_date: date
+) -> dict:
+    """해당 날짜에 user가 추가로 예약 가능한 시간(주간, 새벽, 전체 잔여량)."""
+    is_exam = await get_is_exam_period(db)
+    max_hours = 5.0 if is_exam else float(await get_max_hours_per_day(db))
+    
     day_start = datetime.combine(target_date, time(0, 0))
     day_end = datetime.combine(target_date, time(23, 59, 59))
     result = await db.execute(
@@ -174,8 +227,28 @@ async def get_user_remaining_hours(
             )
         )
     )
-    used = sum(
-        ((r.billed_end_time or r.end_time) - r.start_time).total_seconds() / 3600
-        for r in result.all()
-    )
-    return max(0, max_hours - used)
+    
+    used_dawn = 0.0
+    used_day = 0.0
+    for r in result.all():
+        eff_end = r.billed_end_time or r.end_time
+        dawn, day = split_reservation_hours(r.start_time, eff_end)
+        used_dawn += dawn
+        used_day += day
+        
+    if is_exam:
+        remaining_dawn = max(0.0, 2.0 - used_dawn)
+        remaining_day = max(0.0, 3.0 - used_day)
+        remaining_total = max(0.0, 5.0 - (used_dawn + used_day))
+    else:
+        remaining_dawn = 0.0
+        remaining_day = max(0.0, max_hours - used_day)
+        remaining_total = max(0.0, max_hours - (used_dawn + used_day))
+        
+    return {
+        "remaining_hours": remaining_total,
+        "remaining_day_hours": remaining_day,
+        "remaining_dawn_hours": remaining_dawn,
+        "is_exam_period": is_exam
+    }
+

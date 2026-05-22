@@ -1,4 +1,4 @@
-"""관리자 API: config, 예약 현황, 통계, user 역할."""
+"""관리자 API: config, 예약 현황, 통계, user 역할, 공지사항 관리."""
 from datetime import datetime, date, time, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_admin, get_current_super_admin
-from app.models import Reservation, ReservationStatus, Room, SystemConfig, User, UserRole
+from app.models import Reservation, ReservationStatus, Room, SystemConfig, User, UserRole, Notice
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -27,11 +27,21 @@ class ReservationAdminOut(BaseModel):
     user_id: int
     user_name: str
     user_email: str
+    user_dept: str
     room_id: int
     room_name: str
     start_time: str
     end_time: str
     status: str
+    cancel_reason: str | None = None
+    cancelled_by_admin: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class ReservationCancelRequest(BaseModel):
+    reason: str | None = None
 
 
 class UserAdminOut(BaseModel):
@@ -50,6 +60,27 @@ class UserRoleUpdate(BaseModel):
 
 class GraduateUpdate(BaseModel):
     is_graduate: bool
+
+
+class NoticeCreate(BaseModel):
+    title: str
+    content: str
+
+
+class NoticeUpdate(BaseModel):
+    title: str
+    content: str
+
+
+class NoticeAdminOut(BaseModel):
+    id: int
+    title: str
+    content: str
+    created_at: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True
 
 
 # --- Routes ---
@@ -90,7 +121,6 @@ async def list_reservations(
         select(Reservation, User, Room)
         .join(User, Reservation.user_id == User.id)
         .join(Room, Reservation.room_id == Room.id)
-        .where(Reservation.status == ReservationStatus.confirmed)
     )
     if date_from:
         try:
@@ -114,11 +144,14 @@ async def list_reservations(
             user_id=r.user_id,
             user_name=u.name,
             user_email=u.email,
+            user_dept=u.dept or "-",
             room_id=r.room_id,
             room_name=room.name,
             start_time=r.start_time.isoformat(),
             end_time=r.end_time.isoformat(),
             status=r.status.value,
+            cancel_reason=r.cancel_reason,
+            cancelled_by_admin=r.cancelled_by_admin,
         )
         for r, u, room in rows
     ]
@@ -127,6 +160,7 @@ async def list_reservations(
 @router.delete("/reservations/{reservation_id}", status_code=204)
 async def admin_cancel_reservation(
     reservation_id: int,
+    body: ReservationCancelRequest | None = None,
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -135,6 +169,12 @@ async def admin_cancel_reservation(
     if not r:
         raise HTTPException(status_code=404, detail="예약을 찾을 수 없습니다.")
     r.status = ReservationStatus.cancelled
+    r.cancelled_by_admin = True
+    r.user_notified = False
+    if body and body.reason:
+        r.cancel_reason = body.reason
+    else:
+        r.cancel_reason = "관리자에 의해 취소되었습니다."
     await db.commit()
 
 
@@ -163,7 +203,7 @@ async def get_stats(
     for room in rooms:
         cnt_result = await db.execute(
             select(func.count(Reservation.id)).where(
-                Reservation.room_id == room.id,
+                room.id == Reservation.room_id,
                 Reservation.status == ReservationStatus.confirmed,
             )
         )
@@ -194,7 +234,7 @@ async def list_users(
             id=u.id,
             email=u.email,
             name=u.name,
-            dept=u.dept,
+            dept=u.dept or "-",
             role=u.role.value,
             is_graduate=bool(u.is_graduate),
             created_at=u.created_at.isoformat() if u.created_at else "",
@@ -237,3 +277,81 @@ async def update_user_role(
     user.role = role
     await db.commit()
     return {"ok": True, "role": role.value}
+
+
+# --- Notice Management Routes ---
+@router.get("/notices", response_model=list[NoticeAdminOut])
+async def list_admin_notices(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Notice).order_by(Notice.created_at.desc()))
+    rows = result.scalars().all()
+    return [
+        NoticeAdminOut(
+            id=n.id,
+            title=n.title,
+            content=n.content,
+            created_at=n.created_at.isoformat(),
+            is_active=n.is_active,
+        )
+        for n in rows
+    ]
+
+
+@router.post("/notices", response_model=NoticeAdminOut)
+async def create_notice(
+    body: NoticeCreate,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    n = Notice(title=body.title, content=body.content)
+    db.add(n)
+    await db.commit()
+    await db.refresh(n)
+    return NoticeAdminOut(
+        id=n.id,
+        title=n.title,
+        content=n.content,
+        created_at=n.created_at.isoformat(),
+        is_active=n.is_active,
+    )
+
+
+@router.put("/notices/{notice_id}", response_model=NoticeAdminOut)
+async def update_notice(
+    notice_id: int,
+    body: NoticeUpdate,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Notice).where(Notice.id == notice_id))
+    n = result.scalar_one_or_none()
+    if not n:
+        raise HTTPException(status_code=404, detail="공지사항을 찾을 수 없습니다.")
+    n.title = body.title
+    n.content = body.content
+    await db.commit()
+    await db.refresh(n)
+    return NoticeAdminOut(
+        id=n.id,
+        title=n.title,
+        content=n.content,
+        created_at=n.created_at.isoformat(),
+        is_active=n.is_active,
+    )
+
+
+@router.delete("/notices/{notice_id}", status_code=204)
+async def delete_notice(
+    notice_id: int,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Notice).where(Notice.id == notice_id))
+    n = result.scalar_one_or_none()
+    if not n:
+        raise HTTPException(status_code=404, detail="공지사항을 찾을 수 없습니다.")
+    # Soft delete by setting is_active = False
+    n.is_active = False
+    await db.commit()
