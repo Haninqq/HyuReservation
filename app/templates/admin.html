@@ -731,16 +731,20 @@
             const d = String(today.getDate()).padStart(2, '0');
             document.getElementById('searchDate').value = `${y}-${m}-${d}`;
             
-            // Build hour select boxes for configuration
+            // Build hour select boxes for configuration (30-minute intervals)
             const openSel = document.getElementById('cfg_operating_open');
             const closeSel = document.getElementById('cfg_operating_close');
             let opts = '';
-            for (let i = 0; i <= 24; i++) {
-                const h = String(i).padStart(2, '0') + ':00';
-                opts += `<option value="${h}">${h}</option>`;
+            for (let i = 0; i < 24; i++) {
+                const h1 = String(i).padStart(2, '0') + ':00';
+                const h2 = String(i).padStart(2, '0') + ':30';
+                opts += `<option value="${h1}">${h1}</option>`;
+                opts += `<option value="${h2}">${h2}</option>`;
             }
+            opts += `<option value="24:00">24:00</option>`;
             openSel.innerHTML = opts;
             closeSel.innerHTML = opts;
+
 
             // Desktop sidebar collapse toggle setup
             const collapseBtn = document.getElementById('sidebarCollapseBtn');
