@@ -239,6 +239,7 @@
                 const today = new Date();
                 let count = 0, i = 0;
                 const isExam = appConfig.is_exam_period || false;
+                const limit = appConfig.max_advance_days || 7;
                 while (count < limit && i < 30) {
                     const d = new Date(today);
                     d.setDate(today.getDate() + i);
