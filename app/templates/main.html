@@ -245,7 +245,8 @@
                     d.setDate(today.getDate() + i);
                     const ds = dateStr(d);
                     const dayOfWeek = d.getDay();
-                    const isWknd = (dayOfWeek === 0 || dayOfWeek === 6);
+                    const isWknd = (dayOfWeek === 0); // 일요일만 제외하도록 변경
+
                     const isHol = appConfig.holidays.includes(ds);
                     
                     if (appConfig.exclude_weekends && isWknd) { i++; continue; }

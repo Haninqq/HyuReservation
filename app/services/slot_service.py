@@ -60,9 +60,10 @@ async def get_available_slots(
     max_hours = await get_max_hours_per_day(db)
     is_exam = await get_is_exam_period(db)
 
-    # 주말 제외
-    if exclude_wknd and target_date.weekday() >= 5:
+    # 주말(일요일) 제외
+    if exclude_wknd and target_date.weekday() == 6:
         return []
+
 
     # 공휴일 제외
     date_str = target_date.isoformat()
