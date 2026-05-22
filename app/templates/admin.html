@@ -486,7 +486,8 @@
                         <button class="btn btn-primary w-100" onclick="loadReservations()">조회</button>
                     </div>
                 </div>
-                <div class="table-responsive">
+                <!-- Desktop Table View -->
+                <div class="table-responsive d-none d-md-block">
                     <table class="table align-middle">
                         <thead>
                             <tr>
@@ -503,6 +504,11 @@
                             <!-- Loaded dynamically -->
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile Card View -->
+                <div id="reservationsCardsMobile" class="d-md-none mt-2">
+                    <!-- Loaded dynamically -->
                 </div>
             </div>
         </section>
@@ -810,11 +816,15 @@
             if (!data) return;
 
             const tbody = document.getElementById('reservationsTableBody');
+            const mobileCards = document.getElementById('reservationsCardsMobile');
+            
             if (data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">예약 데이터가 존재하지 않습니다.</td></tr>`;
+                mobileCards.innerHTML = `<div class="text-center text-muted py-4">예약 데이터가 존재하지 않습니다.</div>`;
                 return;
             }
 
+            // Render Table (Desktop)
             tbody.innerHTML = data.map(r => {
                 const formattedTime = `${r.start_time.slice(0, 10)} ${r.start_time.slice(11, 16)} ~ ${r.end_time.slice(11, 16)}`;
                 let statusBadge = '';
@@ -852,6 +862,63 @@
                         <td>${statusBadge}</td>
                         <td>${actionBtn}</td>
                     </tr>
+                `;
+            }).join('');
+
+            // Render Cards (Mobile)
+            mobileCards.innerHTML = data.map(r => {
+                const formattedTime = `${r.start_time.slice(0, 10)} ${r.start_time.slice(11, 16)} ~ ${r.end_time.slice(11, 16)}`;
+                let statusBadge = '';
+                let actionBtnHtml = '';
+                
+                if (r.status === 'confirmed') {
+                    statusBadge = '<span class="badge-confirmed">확정됨</span>';
+                    actionBtnHtml = `<button class="btn btn-outline-danger btn-sm w-100 mt-2" onclick="openCancelModal(${r.id})">예약 취소</button>`;
+                } else if (r.status === 'cancelled') {
+                    const byAdmin = r.cancelled_by_admin ? ' (관리자)' : ' (사용자)';
+                    statusBadge = `<span class="badge-cancelled">취소됨${byAdmin}</span>`;
+                    if (r.cancel_reason) {
+                        actionBtnHtml = `
+                            <div class="p-2.5 mt-2 bg-light border-start border-danger border-3 rounded-2 text-danger small">
+                                <strong>취소 사유:</strong> ${r.cancel_reason}
+                            </div>`;
+                    } else {
+                        actionBtnHtml = '<div class="text-muted small mt-2">취소 사유 없음</div>';
+                    }
+                }
+
+                return `
+                    <div class="card mb-3 border-0 shadow-sm" style="border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid #f0f0f5 !important;">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2.5 px-3" style="border-bottom: 1px solid #f0f0f5;">
+                            <span class="fw-bold text-secondary" style="font-size: 0.85rem;">#${r.id}</span>
+                            <div>${statusBadge}</div>
+                        </div>
+                        <div class="card-body p-3">
+                            <div class="mb-3">
+                                <span class="badge bg-secondary me-2" style="border-radius: 6px; padding: 5px 10px;">${r.room_name}</span>
+                                <span class="fw-bold text-dark" style="font-size: 0.95rem;">${formattedTime}</span>
+                            </div>
+                            <div class="p-2.5 rounded-3 bg-light" style="font-size: 0.85rem; border: 1px solid #f0f0f5;">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <span class="text-muted d-block small mb-1">예약자</span>
+                                        <strong class="text-dark">${r.user_name}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="text-muted d-block small mb-1">학과</span>
+                                        <strong class="text-dark text-truncate d-block">${r.user_dept || '-'}</strong>
+                                    </div>
+                                    <div class="col-12 mt-2 border-top pt-2 border-white">
+                                        <span class="text-muted d-block small mb-1">이메일</span>
+                                        <strong class="text-dark">${r.user_email}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                ${actionBtnHtml}
+                            </div>
+                        </div>
+                    </div>
                 `;
             }).join('');
         }
