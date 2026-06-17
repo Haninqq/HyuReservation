@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  web:
+    image: ghcr.io/haninqq/hyureservation:latest
+    container_name: hyu-reservation
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - .env
+    environment:
+      # Override the default SQLite database location to be within the mounted /app/data volume
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/rsv.db
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # If repository is private, Watchtower needs local docker credentials to pull from GHCR
+      - ~/.docker/config.json:/config.json:ro
+    command: --interval 300 --cleanup hyu-reservation
