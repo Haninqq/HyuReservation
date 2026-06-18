@@ -16,8 +16,9 @@ router = APIRouter()
 async def login_page(request: Request):
     error = request.query_params.get("error")
     return templates.TemplateResponse(
-        "login.html",
-        {"request": request, "error": error},
+        request=request,
+        name="login.html",
+        context={"error": error},
     )
 
 
@@ -76,8 +77,8 @@ async def initial_setup_page(request: Request):
     if "pending_signup" not in request.session:
         return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse(
-        "initial_setup.html",
-        {"request": request},
+        request=request,
+        name="initial_setup.html",
     )
 
 
