@@ -34,7 +34,9 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
     try:
         token = await oauth.google.authorize_access_token(request)
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.error(f"OAuth Callback Error: {e}", exc_info=True)
         return RedirectResponse(url="/login?error=token", status_code=302)
 
     userinfo = token.get("userinfo")
