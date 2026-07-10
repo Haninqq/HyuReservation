@@ -29,6 +29,16 @@ async def favicon():
     return FileResponse("app/static/favicon.ico")
 
 
+@app.get('/service-worker.js', include_in_schema=False)
+async def service_worker():
+    return FileResponse("app/static/service-worker.js", media_type="application/javascript")
+
+
+@app.get('/manifest.json', include_in_schema=False)
+async def manifest():
+    return FileResponse("app/static/manifest.json", media_type="application/json")
+
+
 app.include_router(auth.router)
 app.include_router(admin.router)  # /api/admin/* 먼저 등록 (더 구체적 경로)
 app.include_router(reservations.router)
