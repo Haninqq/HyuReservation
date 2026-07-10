@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
@@ -19,6 +20,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="스터디룸 예약 시스템", lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=get_settings().secret_key)
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.get('/favicon.ico', include_in_schema=False)
+async def favicon():
+    return FileResponse("app/static/favicon.ico")
+
 
 app.include_router(auth.router)
 app.include_router(admin.router)  # /api/admin/* 먼저 등록 (더 구체적 경로)
