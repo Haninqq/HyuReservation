@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import get_current_admin, get_current_super_admin
 from app.models import Reservation, ReservationStatus, Room, SystemConfig, User, UserRole, Notice
-from app.services.config_service import get_auto_holidays
+from app.services.config_service import get_auto_holidays_detailed
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -116,8 +116,7 @@ async def get_auto_holidays_route(
     admin: User = Depends(get_current_admin),
 ):
     """holidays 라이브러리로 자동 계산된 대한민국 법정 공휴일 목록 (설정 화면 참고용)."""
-    auto = await get_auto_holidays()
-    return {"holidays": sorted(auto)}
+    return {"holidays": await get_auto_holidays_detailed()}
 
 
 @router.get("/reservations", response_model=list[ReservationAdminOut])

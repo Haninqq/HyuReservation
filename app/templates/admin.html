@@ -594,7 +594,7 @@
         <!-- SETTINGS SECTION -->
         <section id="pane-settings" class="section-pane">
             <h2 class="header-title">시스템 설정</h2>
-            <div class="dash-card" style="max-width: 700px;">
+            <div class="dash-card">
                 <form id="configForm" onsubmit="event.preventDefault(); saveConfig();">
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
@@ -624,11 +624,16 @@
                     </div>
                     <div class="mb-4">
                         <label class="form-label small fw-bold">추가 휴무일 (학교 자체 휴일 등)</label>
-                        <div class="text-muted small mb-2">대한민국 법정 공휴일(설날·추석·대체공휴일 포함)은 자동으로 적용됩니다. 여기에는 그 외에 추가로 쉬는 날만 JSON 날짜 배열로 입력하세요.</div>
-                        <input type="text" class="form-control" id="cfg_holidays_json" placeholder='["2026-06-06", "2026-08-15"]'>
-                        <div class="mt-2">
-                            <span class="text-muted small fw-bold">자동 적용되는 법정 공휴일 (참고용)</span>
-                            <div id="autoHolidaysList" class="small text-muted mt-1" style="max-height: 120px; overflow-y: auto; background: #f8f9fa; border-radius: 10px; padding: 10px 12px; border: 1px solid #eee;">로딩 중...</div>
+                        <div class="text-muted small mb-2">대한민국 법정 공휴일(설날·추석·대체공휴일 포함)은 아래에 자동으로 반영되어 있어요. 그 외에 학교에서 추가로 쉬는 날이 있다면 날짜를 추가해 주세요.</div>
+                        <div class="d-flex gap-2 mb-3" style="max-width: 320px;">
+                            <input type="date" class="form-control" id="extraHolidayInput">
+                            <button type="button" class="btn btn-outline-primary flex-shrink-0" onclick="addExtraHoliday()">+ 추가</button>
+                        </div>
+                        <div id="extraHolidaysChips" class="d-flex flex-wrap gap-2 mb-2"></div>
+
+                        <div class="mt-3 p-3 rounded-3" style="background: rgba(29,36,117,0.04); border: 1px solid var(--hy-blue-soft);">
+                            <div class="text-muted small fw-bold mb-2">자동으로 적용되는 법정 공휴일</div>
+                            <div id="autoHolidaysList" class="d-flex flex-wrap gap-2" style="max-height: 160px; overflow-y: auto;">로딩 중...</div>
                         </div>
                     </div>
 
@@ -1248,7 +1253,9 @@
             document.getElementById('cfg_slot_duration').value = configData.slot_duration || '30';
             document.getElementById('cfg_max_hours_per_day').value = configData.max_hours_per_day || '3';
             document.getElementById('cfg_max_advance_days').value = configData.max_advance_days || '7';
-            document.getElementById('cfg_holidays_json').value = configData.holidays_json || '[]';
+            try { extraHolidays = JSON.parse(configData.holidays_json || '[]'); } catch (_) { extraHolidays = []; }
+            if (!Array.isArray(extraHolidays)) extraHolidays = [];
+            renderExtraHolidaysChips();
 
             loadAutoHolidays();
 
@@ -1287,10 +1294,46 @@
             if (!el) return;
             const res = await api('/api/admin/auto-holidays');
             if (!res || !res.holidays || !res.holidays.length) {
-                el.textContent = '불러오지 못했습니다.';
+                el.innerHTML = '<span class="text-muted small">불러오지 못했습니다.</span>';
                 return;
             }
-            el.textContent = res.holidays.join(', ');
+            el.innerHTML = res.holidays.map(h => {
+                const mmdd = h.date.slice(5).replace('-', '/');
+                return `<span class="badge bg-white border text-secondary" style="font-weight:500; padding: 7px 10px; border-radius: 8px; font-size: 0.85rem;">${mmdd} ${escapeHtml(h.name)}</span>`;
+            }).join('');
+        }
+
+        let extraHolidays = [];
+
+        function renderExtraHolidaysChips() {
+            const el = document.getElementById('extraHolidaysChips');
+            if (!el) return;
+            if (extraHolidays.length === 0) {
+                el.innerHTML = '<span class="text-muted small">추가된 휴무일이 없습니다.</span>';
+                return;
+            }
+            el.innerHTML = extraHolidays.slice().sort().map(d => `
+                <span class="badge d-inline-flex align-items-center gap-2" style="background: var(--hy-blue-soft); color: var(--hy-blue); font-weight:500; padding: 7px 10px; border-radius: 8px; font-size: 0.85rem;">
+                    ${escapeHtml(d)}
+                    <span role="button" aria-label="삭제" style="font-weight:700; line-height:1;" onclick="removeExtraHoliday('${d}')">×</span>
+                </span>
+            `).join('');
+        }
+
+        function addExtraHoliday() {
+            const input = document.getElementById('extraHolidayInput');
+            const v = input.value;
+            if (!v) return;
+            if (!extraHolidays.includes(v)) {
+                extraHolidays.push(v);
+                renderExtraHolidaysChips();
+            }
+            input.value = '';
+        }
+
+        function removeExtraHoliday(d) {
+            extraHolidays = extraHolidays.filter(x => x !== d);
+            renderExtraHolidaysChips();
         }
 
         async function saveConfig() {
@@ -1298,7 +1341,7 @@
             cfg.slot_duration = document.getElementById('cfg_slot_duration').value;
             cfg.max_hours_per_day = document.getElementById('cfg_max_hours_per_day').value;
             cfg.max_advance_days = document.getElementById('cfg_max_advance_days').value;
-            cfg.holidays_json = document.getElementById('cfg_holidays_json').value;
+            cfg.holidays_json = JSON.stringify(extraHolidays);
 
             cfg.is_exam_period = document.getElementById('cfg_is_exam_period').checked ? 'true' : 'false';
 
