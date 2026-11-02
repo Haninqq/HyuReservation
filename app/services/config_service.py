@@ -77,15 +77,6 @@ async def get_auto_holidays(years: list[int] | None = None) -> set[str]:
     return {d.isoformat() for d in kr_holidays.country_holidays("KR", years=years)}
 
 
-async def get_auto_holidays_detailed(years: list[int] | None = None) -> list[dict]:
-    """설정 화면 표시용: 날짜 + 공휴일 이름 (한글)."""
-    if years is None:
-        this_year = date.today().year
-        years = [this_year, this_year + 1]
-    data = kr_holidays.country_holidays("KR", years=years, language="ko")
-    return [{"date": d.isoformat(), "name": name} for d, name in sorted(data.items())]
-
-
 async def get_extra_holidays(db: AsyncSession) -> set[str]:
     """관리자가 수동으로 추가한 휴무일 (학교 자체 휴일 등)."""
     v = await get_config(db, "holidays_json")

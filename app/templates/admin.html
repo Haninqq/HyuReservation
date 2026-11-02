@@ -624,17 +624,12 @@
                     </div>
                     <div class="mb-4">
                         <label class="form-label small fw-bold">추가 휴무일 (학교 자체 휴일 등)</label>
-                        <div class="text-muted small mb-2">대한민국 법정 공휴일(설날·추석·대체공휴일 포함)은 아래에 자동으로 반영되어 있어요. 그 외에 학교에서 추가로 쉬는 날이 있다면 날짜를 추가해 주세요.</div>
+                        <div class="text-muted small mb-2" style="font-style: italic;">📌 법정 공휴일은 자동으로 반영됩니다~ 학교 휴일만 여기에 추가해주세요~</div>
                         <div class="d-flex gap-2 mb-3" style="max-width: 320px;">
                             <input type="date" class="form-control" id="extraHolidayInput">
                             <button type="button" class="btn btn-outline-primary flex-shrink-0" onclick="addExtraHoliday()">+ 추가</button>
                         </div>
                         <div id="extraHolidaysChips" class="d-flex flex-wrap gap-2 mb-2"></div>
-
-                        <div class="mt-3 p-3 rounded-3" style="background: rgba(29,36,117,0.04); border: 1px solid var(--hy-blue-soft);">
-                            <div class="text-muted small fw-bold mb-2">자동으로 적용되는 법정 공휴일</div>
-                            <div id="autoHolidaysList" class="d-flex flex-wrap gap-2" style="max-height: 160px; overflow-y: auto;">로딩 중...</div>
-                        </div>
                     </div>
 
                     <!-- Exam period mode toggle -->
@@ -1249,8 +1244,6 @@
             if (!Array.isArray(extraHolidays)) extraHolidays = [];
             renderExtraHolidaysChips();
 
-            loadAutoHolidays();
-
             // Set switches
             const isExam = ['true','1','yes'].includes((configData.is_exam_period || 'false').toLowerCase());
 
@@ -1279,20 +1272,6 @@
                 label.textContent = '시험 기간 모드 비활성';
                 label.className = 'form-check-label fw-bold text-secondary';
             }
-        }
-
-        async function loadAutoHolidays() {
-            const el = document.getElementById('autoHolidaysList');
-            if (!el) return;
-            const res = await api('/api/admin/auto-holidays');
-            if (!res || !res.holidays || !res.holidays.length) {
-                el.innerHTML = '<span class="text-muted small">불러오지 못했습니다.</span>';
-                return;
-            }
-            el.innerHTML = res.holidays.map(h => {
-                const mmdd = h.date.slice(5).replace('-', '/');
-                return `<span class="badge bg-white border text-secondary" style="font-weight:500; padding: 7px 10px; border-radius: 8px; font-size: 0.85rem;">${mmdd} ${escapeHtml(h.name)}</span>`;
-            }).join('');
         }
 
         let extraHolidays = [];
