@@ -6,8 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Reservation, ReservationStatus
 from app.services.config_service import (
     get_operating_hours,
-    get_exclude_weekends,
-    get_exclude_holidays,
     get_slot_duration,
     get_max_hours_per_day,
     get_holidays,

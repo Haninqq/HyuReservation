@@ -1,9 +1,10 @@
 """예약 API."""
-from datetime import datetime, timedelta
+import asyncio
+from datetime import date, datetime, timedelta
 import math
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -13,20 +14,22 @@ from app.services.config_service import (
     get_max_advance_days,
     get_max_hours_per_day,
     get_operating_hours,
-    get_exclude_weekends,
-    get_exclude_holidays,
     get_holidays,
     get_slot_duration,
     get_is_exam_period,
 )
 from app.services.slot_service import (
     get_available_slots,
-    get_user_remaining_hours,
     get_user_remaining_hours_split,
     split_reservation_hours,
 )
 
 router = APIRouter(prefix="/api", tags=["reservations"])
+
+# 단일 프로세스(uvicorn worker 1개) 배포 전제: 슬롯 조회 후 삽입까지의 구간에서
+# 동시 요청 간 TOCTOU 레이스(같은 방·시간대 중복 예약)를 막기 위한 전역 락.
+# 멀티 워커/프로세스로 확장하면 DB 레벨 잠금으로 교체해야 함.
+_reservation_lock = asyncio.Lock()
 
 
 # --- Schemas ---
@@ -162,87 +165,86 @@ async def create_reservation(
     if user.is_graduate and "DCELL" not in room.name:
         raise HTTPException(status_code=403, detail="대학원생은 DCELL만 예약 가능합니다.")
 
-    # max_advance_days 확인
-    max_adv = await get_max_advance_days(db)
-    from datetime import date, timedelta
-    today = date.today()
-    if start_dt.date() > today + timedelta(days=max_adv):
-        raise HTTPException(status_code=400, detail=f"예약은 {max_adv}일 이내만 가능합니다.")
+    async with _reservation_lock:
+        # max_advance_days 확인
+        max_adv = await get_max_advance_days(db)
+        today = date.today()
+        if start_dt.date() > today + timedelta(days=max_adv):
+            raise HTTPException(status_code=400, detail=f"예약은 {max_adv}일 이내만 가능합니다.")
 
-    # 인당 일일 제한 (시험 기간 분할 검증 적용)
-    is_exam = await get_is_exam_period(db)
-    max_hours = 5.0 if is_exam else float(await get_max_hours_per_day(db))
+        # 인당 일일 제한 (시험 기간 분할 검증 적용)
+        is_exam = await get_is_exam_period(db)
+        max_hours = 5.0 if is_exam else float(await get_max_hours_per_day(db))
     
-    req_dawn, req_day = split_reservation_hours(start_dt, end_dt)
-    req_total = (end_dt - start_dt).total_seconds() / 3600.0
-    
-    from sqlalchemy import and_
-    day_start = datetime.combine(start_dt.date(), datetime.min.time())
-    day_end = datetime.combine(start_dt.date(), datetime.max.time())
-    result = await db.execute(
-        select(Reservation.start_time, Reservation.end_time, Reservation.billed_end_time).where(
-            and_(
-                Reservation.user_id == user.id,
-                Reservation.status == ReservationStatus.confirmed,
-                Reservation.start_time >= day_start,
-                Reservation.end_time <= day_end + timedelta(seconds=1),
+        req_dawn, req_day = split_reservation_hours(start_dt, end_dt)
+        req_total = (end_dt - start_dt).total_seconds() / 3600.0
+
+        day_start = datetime.combine(start_dt.date(), datetime.min.time())
+        day_end = datetime.combine(start_dt.date(), datetime.max.time())
+        result = await db.execute(
+            select(Reservation.start_time, Reservation.end_time, Reservation.billed_end_time).where(
+                and_(
+                    Reservation.user_id == user.id,
+                    Reservation.status == ReservationStatus.confirmed,
+                    Reservation.start_time >= day_start,
+                    Reservation.end_time <= day_end + timedelta(seconds=1),
+                )
             )
         )
-    )
     
-    used_dawn = 0.0
-    used_day = 0.0
-    for r in result.all():
-        eff_end = r.billed_end_time or r.end_time
-        dawn, day = split_reservation_hours(r.start_time, eff_end)
-        used_dawn += dawn
-        used_day += day
+        used_dawn = 0.0
+        used_day = 0.0
+        for r in result.all():
+            eff_end = r.billed_end_time or r.end_time
+            dawn, day = split_reservation_hours(r.start_time, eff_end)
+            used_dawn += dawn
+            used_day += day
         
-    if is_exam:
-        if used_day + req_day > 3.0:
-            raise HTTPException(status_code=400, detail="시험기간 중 주간(09:00~24:00) 예약 한도는 최대 3시간입니다.")
-        if used_dawn + req_dawn > 2.0:
-            raise HTTPException(status_code=400, detail="시험기간 중 새벽(00:00~09:00) 예약 한도는 최대 2시간입니다.")
-        if (used_dawn + used_day) + req_total > 5.0:
-            raise HTTPException(status_code=400, detail="시험기간 중 일일 총 예약 한도는 5시간입니다.")
-    else:
-        if (used_dawn + used_day) + req_total > max_hours:
-            raise HTTPException(status_code=400, detail="일일 예약 가능 시간을 초과했습니다.")
+        if is_exam:
+            if used_day + req_day > 3.0:
+                raise HTTPException(status_code=400, detail="시험기간 중 주간(09:00~24:00) 예약 한도는 최대 3시간입니다.")
+            if used_dawn + req_dawn > 2.0:
+                raise HTTPException(status_code=400, detail="시험기간 중 새벽(00:00~09:00) 예약 한도는 최대 2시간입니다.")
+            if (used_dawn + used_day) + req_total > 5.0:
+                raise HTTPException(status_code=400, detail="시험기간 중 일일 총 예약 한도는 5시간입니다.")
+        else:
+            if (used_dawn + used_day) + req_total > max_hours:
+                raise HTTPException(status_code=400, detail="일일 예약 가능 시간을 초과했습니다.")
 
-    # 슬롯이 예약 가능한지 확인 (범위 전체가 available이어야 함)
-    slots = await get_available_slots(db, start_dt.date(), body.room_id, user.id)
-    overlapping = [
-        s for s in slots
-        if datetime.fromisoformat(s["start"]) < end_dt and datetime.fromisoformat(s["end"]) > start_dt
-    ]
-    slot_available = overlapping and all(s["available"] for s in overlapping)
-    if not slot_available:
-        raise HTTPException(status_code=400, detail="해당 시간은 예약할 수 없습니다.")
+        # 슬롯이 예약 가능한지 확인 (범위 전체가 available이어야 함)
+        slots = await get_available_slots(db, start_dt.date(), body.room_id, user.id)
+        overlapping = [
+            s for s in slots
+            if datetime.fromisoformat(s["start"]) < end_dt and datetime.fromisoformat(s["end"]) > start_dt
+        ]
+        slot_available = overlapping and all(s["available"] for s in overlapping)
+        if not slot_available:
+            raise HTTPException(status_code=400, detail="해당 시간은 예약할 수 없습니다.")
 
-    # 중복 예약 체크 (같은 user, 같은 시간대 - 다른 방이어도 1인 1예약)
-    overlap = await db.execute(
-        select(Reservation).where(
-            and_(
-                Reservation.user_id == user.id,
-                Reservation.status == ReservationStatus.confirmed,
-                Reservation.start_time < end_dt,
-                Reservation.end_time > start_dt,
+        # 중복 예약 체크 (같은 user, 같은 시간대 - 다른 방이어도 1인 1예약)
+        overlap = await db.execute(
+            select(Reservation).where(
+                and_(
+                    Reservation.user_id == user.id,
+                    Reservation.status == ReservationStatus.confirmed,
+                    Reservation.start_time < end_dt,
+                    Reservation.end_time > start_dt,
+                )
             )
         )
-    )
-    if overlap.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="해당 시간에 이미 다른 예약이 있습니다.")
+        if overlap.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="해당 시간에 이미 다른 예약이 있습니다.")
 
-    r = Reservation(
-        user_id=user.id,
-        room_id=body.room_id,
-        start_time=start_dt,
-        end_time=end_dt,
-        status=ReservationStatus.confirmed,
-    )
-    db.add(r)
-    await db.commit()
-    await db.refresh(r)
+        r = Reservation(
+            user_id=user.id,
+            room_id=body.room_id,
+            start_time=start_dt,
+            end_time=end_dt,
+            status=ReservationStatus.confirmed,
+        )
+        db.add(r)
+        await db.commit()
+        await db.refresh(r)
     return ReservationOut(
         id=r.id,
         room_id=r.room_id,

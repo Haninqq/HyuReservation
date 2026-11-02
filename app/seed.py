@@ -9,8 +9,6 @@ DEFAULT_CONFIG = {
     "slot_duration": "30",
     "max_hours_per_day": "3",
     "operating_hours": json.dumps({"open": "09:00", "close": "24:00"}),
-    "exclude_weekends": "true",
-    "exclude_holidays": "true",
     "max_advance_days": "7",
     "is_exam_period": "false",
     "holidays_json": json.dumps([

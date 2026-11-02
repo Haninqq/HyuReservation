@@ -41,7 +41,7 @@ class ReservationAdminOut(BaseModel):
 
 
 class ReservationCancelRequest(BaseModel):
-    reason: str | None = None
+    reason: str = "관리자에 의해 취소되었습니다."
 
 
 class UserAdminOut(BaseModel):
@@ -160,7 +160,7 @@ async def list_reservations(
 @router.delete("/reservations/{reservation_id}", status_code=204)
 async def admin_cancel_reservation(
     reservation_id: int,
-    body: ReservationCancelRequest | None = None,
+    body: ReservationCancelRequest,
     admin: User = Depends(get_current_admin),
     db: AsyncSession = Depends(get_db),
 ):
@@ -171,10 +171,7 @@ async def admin_cancel_reservation(
     r.status = ReservationStatus.cancelled
     r.cancelled_by_admin = True
     r.user_notified = False
-    if body and body.reason:
-        r.cancel_reason = body.reason
-    else:
-        r.cancel_reason = "관리자에 의해 취소되었습니다."
+    r.cancel_reason = body.reason
     await db.commit()
 
 

@@ -1,3 +1,4 @@
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from app.config import get_settings
@@ -40,7 +41,7 @@ def _add_billed_end_time_if_missing(conn):
         cols = [row[1] for row in r.fetchall()]
         if "billed_end_time" not in cols:
             conn.execute(text("ALTER TABLE reservations ADD COLUMN billed_end_time DATETIME"))
-    except Exception:
+    except OperationalError:
         pass  # 테이블 없으면 스킵
 
 
@@ -52,8 +53,8 @@ def _add_is_graduate_if_missing(conn):
         cols = [row[1] for row in r.fetchall()]
         if "is_graduate" not in cols:
             conn.execute(text("ALTER TABLE users ADD COLUMN is_graduate BOOLEAN DEFAULT 0"))
-    except Exception:
-        pass
+    except OperationalError:
+        pass  # 테이블 없으면 스킵
 
 
 def _add_reservation_cancel_columns_if_missing(conn):
@@ -68,6 +69,6 @@ def _add_reservation_cancel_columns_if_missing(conn):
             conn.execute(text("ALTER TABLE reservations ADD COLUMN cancelled_by_admin BOOLEAN DEFAULT 0"))
         if "user_notified" not in cols:
             conn.execute(text("ALTER TABLE reservations ADD COLUMN user_notified BOOLEAN DEFAULT 0"))
-    except Exception:
-        pass
+    except OperationalError:
+        pass  # 테이블 없으면 스킵
 
