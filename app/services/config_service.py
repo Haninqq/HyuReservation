@@ -1,5 +1,8 @@
 """SystemConfig 조회 서비스."""
 import json
+from datetime import date
+
+import holidays as kr_holidays
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -66,13 +69,29 @@ async def get_operating_hours(db: AsyncSession) -> tuple[str, str]:
         return "09:00", "24:00"
 
 
-async def get_holidays(db: AsyncSession) -> set[str]:
+async def get_auto_holidays(years: list[int] | None = None) -> set[str]:
+    """holidays 라이브러리로 계산한 대한민국 법정 공휴일(대체공휴일 포함)."""
+    if years is None:
+        this_year = date.today().year
+        years = [this_year, this_year + 1]
+    return {d.isoformat() for d in kr_holidays.country_holidays("KR", years=years)}
+
+
+async def get_extra_holidays(db: AsyncSession) -> set[str]:
+    """관리자가 수동으로 추가한 휴무일 (학교 자체 휴일 등)."""
     v = await get_config(db, "holidays_json")
     try:
         arr = json.loads(v) if v else []
         return set(arr) if isinstance(arr, list) else set()
     except (json.JSONDecodeError, TypeError):
         return set()
+
+
+async def get_holidays(db: AsyncSession) -> set[str]:
+    """자동 계산된 법정 공휴일 + 관리자가 추가한 휴무일."""
+    auto = await get_auto_holidays()
+    extra = await get_extra_holidays(db)
+    return auto | extra
 
 
 async def get_is_exam_period(db: AsyncSession) -> bool:

@@ -546,6 +546,25 @@
         <section id="pane-users" class="section-pane">
             <h2 class="header-title">사용자 관리</h2>
             <div class="dash-card">
+                <div class="row g-3 mb-4 align-items-end">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label small fw-bold">검색</label>
+                        <input type="text" id="userSearchInput" class="form-control" placeholder="이름, 이메일, 학과로 검색" oninput="filterUsers()">
+                    </div>
+                    <div class="col-8 col-md-4">
+                        <label class="form-label small fw-bold">역할 필터</label>
+                        <select class="form-select" id="userRoleFilter" onchange="filterUsers()">
+                            <option value="all">전체</option>
+                            <option value="admin_only">관리자만 (admin/super_admin)</option>
+                            <option value="user">user</option>
+                            <option value="admin">admin</option>
+                            <option value="super_admin">super_admin</option>
+                        </select>
+                    </div>
+                    <div class="col-4 col-md-2">
+                        <span class="text-muted small" id="userCountLabel"></span>
+                    </div>
+                </div>
                 <!-- Desktop Table View -->
                 <div class="table-responsive d-none d-md-block">
                     <table class="table align-middle">
@@ -604,8 +623,13 @@
                         <input type="number" class="form-control" id="cfg_max_advance_days" min="1" max="30">
                     </div>
                     <div class="mb-4">
-                        <label class="form-label small fw-bold">공휴일 목록 (JSON 날짜 배열)</label>
+                        <label class="form-label small fw-bold">추가 휴무일 (학교 자체 휴일 등)</label>
+                        <div class="text-muted small mb-2">대한민국 법정 공휴일(설날·추석·대체공휴일 포함)은 자동으로 적용됩니다. 여기에는 그 외에 추가로 쉬는 날만 JSON 날짜 배열로 입력하세요.</div>
                         <input type="text" class="form-control" id="cfg_holidays_json" placeholder='["2026-06-06", "2026-08-15"]'>
+                        <div class="mt-2">
+                            <span class="text-muted small fw-bold">자동 적용되는 법정 공휴일 (참고용)</span>
+                            <div id="autoHolidaysList" class="small text-muted mt-1" style="max-height: 120px; overflow-y: auto; background: #f8f9fa; border-radius: 10px; padding: 10px 12px; border: 1px solid #eee;">로딩 중...</div>
+                        </div>
                     </div>
 
                     <!-- Exam period mode toggle -->
@@ -944,9 +968,11 @@
         };
 
         // --- NOTICES SECTION LOGIC ---
+        let noticesData = [];
         async function loadNotices() {
             const data = await api('/api/admin/notices');
             if (!data) return;
+            noticesData = data;
 
             const tbody = document.getElementById('noticesTableBody');
             if (data.length === 0) {
@@ -965,23 +991,24 @@
                 let actions = '';
                 if (n.is_active) {
                     actions = `
-                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openNoticeModal(${n.id}, '${titleEsc.replace(/'/g, "\\'")}', '${contentEsc.replace(/'/g, "\\'")}')">수정</button>
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openNoticeModal(${n.id})">수정</button>
                         <button class="btn btn-sm btn-outline-danger" onclick="deleteNotice(${n.id})">삭제</button>
                     `;
                 } else {
                     actions = '<span class="text-muted small">-</span>';
                 }
+                const clickToEdit = n.is_active ? `onclick="openNoticeModal(${n.id})" style="cursor:pointer;"` : '';
 
                 return `
                     <tr>
                         <td class="d-none d-md-table-cell"><strong>${n.id}</strong></td>
-                        <td class="fw-bold">
+                        <td class="fw-bold" ${clickToEdit}>
                             <div>${titleEsc}</div>
                             <div class="d-md-none text-muted small mt-1" style="font-weight: normal; font-size:0.75rem; white-space: normal;">
                                 ${formatContent}
                             </div>
                         </td>
-                        <td class="text-secondary small d-none d-md-table-cell" style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${contentEsc}">${formatContent}</td>
+                        <td class="text-secondary small d-none d-md-table-cell" style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${contentEsc}" ${clickToEdit}>${formatContent}</td>
                         <td class="d-none d-md-table-cell">${n.created_at.slice(0, 10)}</td>
                         <td>${statusBadge}</td>
                         <td>${actions}</td>
@@ -999,10 +1026,11 @@
                 .replace(/>/g, '&gt;');
         }
 
-        function openNoticeModal(id = null, title = '', content = '') {
+        function openNoticeModal(id = null) {
+            const notice = id ? noticesData.find(n => n.id === id) : null;
             document.getElementById('noticeModalId').value = id || '';
-            document.getElementById('noticeTitleInput').value = title;
-            document.getElementById('noticeContentInput').value = content;
+            document.getElementById('noticeTitleInput').value = notice ? notice.title : '';
+            document.getElementById('noticeContentInput').value = notice ? notice.content : '';
             document.getElementById('noticeModalTitle').textContent = id ? '공지사항 수정' : '신규 공지사항 등록';
             new bootstrap.Modal(document.getElementById('noticeModal')).show();
         }
@@ -1049,12 +1077,43 @@
         }
 
         // --- USERS SECTION LOGIC ---
+        let usersData = [];
         async function loadUsers() {
             const data = await api('/api/admin/users');
             if (!data) return;
+            usersData = data;
+            filterUsers();
+        }
 
+        function getFilteredUsers() {
+            const q = (document.getElementById('userSearchInput')?.value || '').trim().toLowerCase();
+            const roleFilter = document.getElementById('userRoleFilter')?.value || 'all';
+            return usersData.filter(u => {
+                if (roleFilter === 'admin_only' && !['admin', 'super_admin'].includes(u.role)) return false;
+                if (roleFilter !== 'all' && roleFilter !== 'admin_only' && u.role !== roleFilter) return false;
+                if (q) {
+                    const hay = `${u.name || ''} ${u.email || ''} ${u.dept || ''}`.toLowerCase();
+                    if (!hay.includes(q)) return false;
+                }
+                return true;
+            });
+        }
+
+        function filterUsers() {
+            renderUsers(getFilteredUsers());
+        }
+
+        function renderUsers(data) {
             const tbody = document.getElementById('usersTableBody');
             const mobileCards = document.getElementById('usersCardsMobile');
+            const countLabel = document.getElementById('userCountLabel');
+            if (countLabel) countLabel.textContent = `${data.length} / ${usersData.length}명`;
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">조건에 맞는 사용자가 없습니다.</td></tr>`;
+                mobileCards.innerHTML = `<div class="text-center text-muted py-4">조건에 맞는 사용자가 없습니다.</div>`;
+                return;
+            }
 
             // Render Table (Desktop)
             tbody.innerHTML = data.map(u => {
@@ -1191,6 +1250,8 @@
             document.getElementById('cfg_max_advance_days').value = configData.max_advance_days || '7';
             document.getElementById('cfg_holidays_json').value = configData.holidays_json || '[]';
 
+            loadAutoHolidays();
+
             // Set switches
             const isExam = ['true','1','yes'].includes((configData.is_exam_period || 'false').toLowerCase());
 
@@ -1219,6 +1280,17 @@
                 label.textContent = '시험 기간 모드 비활성';
                 label.className = 'form-check-label fw-bold text-secondary';
             }
+        }
+
+        async function loadAutoHolidays() {
+            const el = document.getElementById('autoHolidaysList');
+            if (!el) return;
+            const res = await api('/api/admin/auto-holidays');
+            if (!res || !res.holidays || !res.holidays.length) {
+                el.textContent = '불러오지 못했습니다.';
+                return;
+            }
+            el.textContent = res.holidays.join(', ');
         }
 
         async function saveConfig() {
