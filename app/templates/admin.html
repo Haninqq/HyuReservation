@@ -832,9 +832,9 @@
                     actionBtn = `<button class="btn btn-outline-danger btn-sm" onclick="openCancelModal(${r.id})">예약 취소</button>`;
                 } else if (r.status === 'cancelled') {
                     const byAdmin = r.cancelled_by_admin ? ' (관리자)' : ' (사용자)';
-                    statusBadge = `<span class="badge-cancelled" title="${r.cancel_reason || ''}">취소됨${byAdmin}</span>`;
+                    statusBadge = `<span class="badge-cancelled" title="${escapeHtml(r.cancel_reason || '')}">취소됨${byAdmin}</span>`;
                     if (r.cancel_reason) {
-                        actionBtn = `<span class="small text-muted d-block text-truncate" style="max-width: 180px;" title="${r.cancel_reason}">${r.cancel_reason}</span>`;
+                        actionBtn = `<span class="small text-muted d-block text-truncate" style="max-width: 180px;" title="${escapeHtml(r.cancel_reason)}">${escapeHtml(r.cancel_reason)}</span>`;
                     } else {
                         actionBtn = '<span class="small text-muted">-</span>';
                     }
@@ -847,15 +847,15 @@
                             <div class="fw-bold" style="white-space: nowrap;">${formattedTime}</div>
                             <div class="d-md-none text-muted small" style="font-size:0.75rem;">#${r.id}</div>
                         </td>
-                        <td><span class="badge bg-secondary" style="border-radius:6px;">${r.room_name}</span></td>
+                        <td><span class="badge bg-secondary" style="border-radius:6px;">${escapeHtml(r.room_name)}</span></td>
                         <td>
-                            <div class="fw-bold">${r.user_name}</div>
+                            <div class="fw-bold">${escapeHtml(r.user_name)}</div>
                             <div class="text-muted small" style="font-size:0.75rem; white-space: normal;">
-                                <span class="d-md-none">${r.user_dept}</span>
-                                <span class="d-none d-md-inline">${r.user_email}</span>
+                                <span class="d-md-none">${escapeHtml(r.user_dept)}</span>
+                                <span class="d-none d-md-inline">${escapeHtml(r.user_email)}</span>
                             </div>
                         </td>
-                        <td class="d-none d-md-table-cell">${r.user_dept}</td>
+                        <td class="d-none d-md-table-cell">${escapeHtml(r.user_dept)}</td>
                         <td>${statusBadge}</td>
                         <td>${actionBtn}</td>
                     </tr>
@@ -877,7 +877,7 @@
                     if (r.cancel_reason) {
                         actionBtnHtml = `
                             <div class="p-2.5 mt-2 bg-light border-start border-danger border-3 rounded-2 text-danger small">
-                                <strong>취소 사유:</strong> ${r.cancel_reason}
+                                <strong>취소 사유:</strong> ${escapeHtml(r.cancel_reason)}
                             </div>`;
                     } else {
                         actionBtnHtml = '<div class="text-muted small mt-2">취소 사유 없음</div>';
@@ -892,22 +892,22 @@
                         </div>
                         <div class="card-body p-3">
                             <div class="mb-3">
-                                <span class="badge bg-secondary me-2" style="border-radius: 6px; padding: 5px 10px;">${r.room_name}</span>
+                                <span class="badge bg-secondary me-2" style="border-radius: 6px; padding: 5px 10px;">${escapeHtml(r.room_name)}</span>
                                 <span class="fw-bold text-dark" style="font-size: 0.95rem;">${formattedTime}</span>
                             </div>
                             <div class="p-2.5 rounded-3 bg-light" style="font-size: 0.85rem; border: 1px solid #f0f0f5;">
                                 <div class="row g-2">
                                     <div class="col-6">
                                         <span class="text-muted d-block small mb-1">예약자</span>
-                                        <strong class="text-dark">${r.user_name}</strong>
+                                        <strong class="text-dark">${escapeHtml(r.user_name)}</strong>
                                     </div>
                                     <div class="col-6">
                                         <span class="text-muted d-block small mb-1">학과</span>
-                                        <strong class="text-dark text-truncate d-block">${r.user_dept || '-'}</strong>
+                                        <strong class="text-dark text-truncate d-block">${escapeHtml(r.user_dept || '-')}</strong>
                                     </div>
                                     <div class="col-12 mt-2 border-top pt-2 border-white">
                                         <span class="text-muted d-block small mb-1">이메일</span>
-                                        <strong class="text-dark">${r.user_email}</strong>
+                                        <strong class="text-dark">${escapeHtml(r.user_email)}</strong>
                                     </div>
                                 </div>
                             </div>
@@ -1075,13 +1075,13 @@
                     <tr>
                         <td class="d-none d-md-table-cell"><strong>${u.id}</strong></td>
                         <td class="fw-bold">
-                            <div>${u.name || '-'}</div>
+                            <div>${escapeHtml(u.name || '-')}</div>
                             <div class="d-md-none text-muted small mt-1" style="font-weight: normal; font-size:0.75rem; white-space: normal;">
-                                #${u.id} | ${u.dept} | ${u.email}
+                                #${u.id} | ${escapeHtml(u.dept)} | ${escapeHtml(u.email)}
                             </div>
                         </td>
-                        <td class="d-none d-md-table-cell">${u.email}</td>
-                        <td class="d-none d-md-table-cell">${u.dept}</td>
+                        <td class="d-none d-md-table-cell">${escapeHtml(u.email)}</td>
+                        <td class="d-none d-md-table-cell">${escapeHtml(u.dept)}</td>
                         <td>${roleHtml}</td>
                         <td>
                             <div class="form-check form-switch">
@@ -1118,15 +1118,15 @@
                                 <div class="row g-2">
                                     <div class="col-6">
                                         <span class="text-muted d-block small mb-1">이름</span>
-                                        <strong class="text-dark">${u.name || '-'}</strong>
+                                        <strong class="text-dark">${escapeHtml(u.name || '-')}</strong>
                                     </div>
                                     <div class="col-6">
                                         <span class="text-muted d-block small mb-1">학과</span>
-                                        <strong class="text-dark text-truncate d-block">${u.dept || '-'}</strong>
+                                        <strong class="text-dark text-truncate d-block">${escapeHtml(u.dept || '-')}</strong>
                                     </div>
                                     <div class="col-12 mt-2 border-top pt-2 border-white">
                                         <span class="text-muted d-block small mb-1">이메일</span>
-                                        <strong class="text-dark">${u.email}</strong>
+                                        <strong class="text-dark">${escapeHtml(u.email)}</strong>
                                     </div>
                                 </div>
                             </div>
