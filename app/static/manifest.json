@@ -1,0 +1,26 @@
+{
+  "short_name": "스터디룸 예약",
+  "name": "한양대학교 스터디룸 예약 시스템",
+  "icons": [
+    {
+      "src": "/static/favicon-96x96.png",
+      "type": "image/png",
+      "sizes": "96x96 192x192"
+    },
+    {
+      "src": "/static/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    },
+    {
+      "src": "/static/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": "/login",
+  "background_color": "#f5f6fa",
+  "theme_color": "#1D2475",
+  "display": "standalone",
+  "orientation": "portrait"
+}

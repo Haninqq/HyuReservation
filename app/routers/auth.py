@@ -16,8 +16,9 @@ router = APIRouter()
 async def login_page(request: Request):
     error = request.query_params.get("error")
     return templates.TemplateResponse(
-        "login.html",
-        {"request": request, "error": error},
+        request=request,
+        name="login.html",
+        context={"error": error},
     )
 
 
@@ -33,7 +34,9 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
     try:
         token = await oauth.google.authorize_access_token(request)
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.error(f"OAuth Callback Error: {e}", exc_info=True)
         return RedirectResponse(url="/login?error=token", status_code=302)
 
     userinfo = token.get("userinfo")
@@ -76,8 +79,8 @@ async def initial_setup_page(request: Request):
     if "pending_signup" not in request.session:
         return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse(
-        "initial_setup.html",
-        {"request": request},
+        request=request,
+        name="initial_setup.html",
     )
 
 
