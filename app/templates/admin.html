@@ -977,32 +977,24 @@
         async function loadNotices() {
             const data = await api('/api/admin/notices');
             if (!data) return;
-            noticesData = data;
+            noticesData = data.filter(n => n.is_active); // 삭제된(비활성) 공지는 목록에서 아예 제외
 
             const tbody = document.getElementById('noticesTableBody');
-            if (data.length === 0) {
+            if (noticesData.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">등록된 공지사항이 없습니다.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = data.map(n => {
+            tbody.innerHTML = noticesData.map(n => {
                 const titleEsc = escapeHtml(n.title);
                 const contentEsc = escapeHtml(n.content);
                 const formatContent = contentEsc.length > 50 ? contentEsc.slice(0, 50) + '...' : contentEsc;
-                const statusBadge = n.is_active ? 
-                    '<span class="badge bg-success" style="border-radius:6px;">노출중</span>' : 
-                    '<span class="badge bg-secondary" style="border-radius:6px;">삭제됨</span>';
-                
-                let actions = '';
-                if (n.is_active) {
-                    actions = `
+                const statusBadge = '<span class="badge bg-success" style="border-radius:6px;">노출중</span>';
+                const actions = `
                         <button class="btn btn-sm btn-outline-primary me-1" onclick="openNoticeModal(${n.id})">수정</button>
                         <button class="btn btn-sm btn-outline-danger" onclick="deleteNotice(${n.id})">삭제</button>
                     `;
-                } else {
-                    actions = '<span class="text-muted small">-</span>';
-                }
-                const clickToEdit = n.is_active ? `onclick="openNoticeModal(${n.id})" style="cursor:pointer;"` : '';
+                const clickToEdit = `onclick="openNoticeModal(${n.id})" style="cursor:pointer;"`;
 
                 return `
                     <tr>
