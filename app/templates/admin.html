@@ -609,7 +609,6 @@
                                 <th style="width: 80px;" class="d-none d-md-table-cell">ID</th>
                                 <th>학과명</th>
                                 <th>구분</th>
-                                <th>상태</th>
                                 <th style="width: 100px;">작업</th>
                             </tr>
                         </thead>
@@ -1137,7 +1136,7 @@
             if (!data) return;
             const active = data.filter(d => d.is_active);
             if (active.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">등록된 학과가 없습니다.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">등록된 학과가 없습니다.</td></tr>`;
                 return;
             }
             tbody.innerHTML = active.map(d => `
@@ -1145,7 +1144,6 @@
                     <td class="d-none d-md-table-cell"><strong>${d.id}</strong></td>
                     <td class="fw-bold">${escapeHtml(d.name)}</td>
                     <td><span class="badge bg-secondary" style="border-radius:6px;">${DEPT_LEVEL_LABEL[d.level] || d.level}</span></td>
-                    <td><span class="badge bg-success" style="border-radius:6px;">노출중</span></td>
                     <td><button class="btn btn-sm btn-outline-danger" onclick="deleteDepartment(${d.id})">삭제</button></td>
                 </tr>
             `).join('');
@@ -1215,10 +1213,21 @@
             filterUsers();
         }
 
+        function isKnownDept(dept) {
+            if (!deptOptions) return true; // 아직 안 불러왔으면 판단 보류
+            const known = [...deptOptions.undergraduate, ...deptOptions.grad_general, ...deptOptions.grad_education];
+            return known.includes(dept);
+        }
+
+        function needsReview(u) {
+            // 학과가 비어있거나, 사범대 소속 학과 목록에 없는 값이면 확인이 필요한 사용자로 취급
+            return !u.dept || u.dept === '-' || !isKnownDept(u.dept);
+        }
+
         function getFilteredUsers() {
             const q = (document.getElementById('userSearchInput')?.value || '').trim().toLowerCase();
             const roleFilter = document.getElementById('userRoleFilter')?.value || 'all';
-            return usersData.filter(u => {
+            const filtered = usersData.filter(u => {
                 if (roleFilter === 'admin_only' && !['admin', 'super_admin'].includes(u.role)) return false;
                 if (roleFilter !== 'all' && roleFilter !== 'admin_only' && u.role !== roleFilter) return false;
                 if (q) {
@@ -1227,6 +1236,14 @@
                 }
                 return true;
             });
+            // 확인이 필요한 사용자(학과 미설정 / 사범대 외부 추정)를 목록 맨 위로 올림
+            return filtered
+                .map((u, idx) => ({ u, idx }))
+                .sort((a, b) => {
+                    const diff = (needsReview(b.u) ? 1 : 0) - (needsReview(a.u) ? 1 : 0);
+                    return diff !== 0 ? diff : a.idx - b.idx;
+                })
+                .map(x => x.u);
         }
 
         function filterUsers() {
@@ -1264,7 +1281,7 @@
                     <tr>
                         <td class="d-none d-md-table-cell"><strong>${u.id}</strong></td>
                         <td class="fw-bold">
-                            <div>${escapeHtml(u.name || '-')}</div>
+                            <div>${escapeHtml(u.name || '-')}${needsReview(u) ? ' <span class="badge" style="background:#fff3cd; color:#8a6d1a; border-radius:6px; font-size:0.7rem;" title="사범대 외부 추정 되는 학과 미설정">⚠️ 확인필요</span>' : ''}</div>
                             <div class="d-md-none text-muted small mt-1" style="font-weight: normal; font-size:0.75rem; white-space: normal;">
                                 #${u.id} | ${escapeHtml(u.dept)} | ${escapeHtml(u.email)}
                             </div>
@@ -1308,6 +1325,7 @@
                                     <div class="col-6">
                                         <span class="text-muted d-block small mb-1">이름</span>
                                         <strong class="text-dark">${escapeHtml(u.name || '-')}</strong>
+                                        ${needsReview(u) ? '<div class="badge mt-1" style="background:#fff3cd; color:#8a6d1a; border-radius:6px; font-size:0.7rem;">⚠️ 확인필요</div>' : ''}
                                     </div>
                                     <div class="col-6">
                                         <span class="text-muted d-block small mb-1">학과</span>
