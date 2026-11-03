@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
-from app.models import User, UserRole, parse_google_name
+from app.models import User, UserRole, parse_google_name, Department, DepartmentLevel
 from app.templating import templates
 from app.oauth import oauth
 
@@ -57,8 +57,11 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
     if user:
         user.name = name
-        user.dept = dept
         user.email = email
+        # 학과는 로그인마다 구글 이름으로 재동기화하지 않는다 (대학원생은 가입 시 직접 고른 값을 유지).
+        # 학부생은 구글 이름 파싱에 의존하지만, 새로 파싱한 값이 비어있을 때는 기존 값을 지우지 않는다.
+        if not user.is_graduate and dept:
+            user.dept = dept
         await db.commit()
         await db.refresh(user)
         request.session["user_id"] = user.id
@@ -75,12 +78,27 @@ async def auth_callback(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/initial_setup", response_class=HTMLResponse)
-async def initial_setup_page(request: Request):
+async def initial_setup_page(request: Request, db: AsyncSession = Depends(get_db)):
     if "pending_signup" not in request.session:
         return RedirectResponse(url="/login", status_code=302)
+
+    general_result = await db.execute(
+        select(Department)
+        .where(Department.level == DepartmentLevel.grad_general, Department.is_active == True)
+        .order_by(Department.sort_order)
+    )
+    education_result = await db.execute(
+        select(Department)
+        .where(Department.level == DepartmentLevel.grad_education, Department.is_active == True)
+        .order_by(Department.sort_order)
+    )
     return templates.TemplateResponse(
         request=request,
         name="initial_setup.html",
+        context={
+            "grad_general_depts": general_result.scalars().all(),
+            "grad_education_depts": education_result.scalars().all(),
+        },
     )
 
 

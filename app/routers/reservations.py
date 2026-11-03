@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user_api
-from app.models import Reservation, ReservationStatus, Room, User
+from app.models import Reservation, ReservationStatus, Room, User, Department, DepartmentLevel, UNDERGRAD_DEPARTMENTS
 from app.services.config_service import (
     get_max_advance_days,
     get_max_hours_per_day,
@@ -443,3 +443,33 @@ async def read_notification(
     await db.commit()
     return {"ok": True}
 
+# --- 학과 자가 수정 (가입 후 학과가 비어있는 경우 본인이 직접 선택) ---
+@router.get("/me/departments")
+async def list_my_department_options(
+    user: User = Depends(get_current_user_api),
+    db: AsyncSession = Depends(get_db),
+):
+    if user.is_graduate:
+        result = await db.execute(
+            select(Department).where(Department.is_active == True).order_by(Department.level, Department.sort_order)
+        )
+        return {"departments": [d.name for d in result.scalars().all()]}
+    return {"departments": UNDERGRAD_DEPARTMENTS}
+
+
+class MyDeptUpdate(BaseModel):
+    dept: str
+
+
+@router.patch("/me/dept")
+async def update_my_dept(
+    body: MyDeptUpdate,
+    user: User = Depends(get_current_user_api),
+    db: AsyncSession = Depends(get_db),
+):
+    options = (await list_my_department_options(user, db))["departments"]
+    if body.dept not in options:
+        raise HTTPException(status_code=400, detail="올바른 학과를 선택해주세요.")
+    user.dept = body.dept
+    await db.commit()
+    return {"ok": True, "dept": user.dept}

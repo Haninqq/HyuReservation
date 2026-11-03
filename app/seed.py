@@ -1,8 +1,8 @@
-"""DB 시드: SystemConfig 기본값, Room 8개."""
+"""DB 시드: SystemConfig 기본값, Room 8개, 대학원 학과 목록."""
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
-from app.models import Room, SystemConfig
+from app.models import Room, SystemConfig, Department, DepartmentLevel
 
 DEFAULT_CONFIG = {
     "slot_duration": "30",
@@ -20,6 +20,16 @@ ROOM_NAMES = [
     "Studyroom E", "Studyroom F", "DCELL 1", "DCELL 2",
 ]
 
+GRAD_GENERAL_DEPARTMENTS = [
+    "교육공학과", "러닝사이언스학과", "응용미술학과", "한국어교육학과",
+    "박물관교육학과", "다문화교육학과", "평생학습학과",
+]
+
+GRAD_EDUCATION_DEPARTMENTS = [
+    "상담심리", "유아교육", "교육공학", "국어교육", "영어교육",
+    "수학교육", "일반사회교육", "음악교육", "미술교육", "체육교육",
+]
+
 
 async def seed_db():
     async with AsyncSessionLocal() as db:
@@ -34,5 +44,16 @@ async def seed_db():
         if len(result.scalars().all()) == 0:
             for name in ROOM_NAMES:
                 db.add(Room(name=name, is_active=True))
+
+        # Department (대학원 17개, 최초 1회만 시드)
+        result = await db.execute(select(Department))
+        if len(result.scalars().all()) == 0:
+            order = 0
+            for name in GRAD_GENERAL_DEPARTMENTS:
+                db.add(Department(name=name, level=DepartmentLevel.grad_general, sort_order=order, is_active=True))
+                order += 1
+            for name in GRAD_EDUCATION_DEPARTMENTS:
+                db.add(Department(name=name, level=DepartmentLevel.grad_education, sort_order=order, is_active=True))
+                order += 1
 
         await db.commit()

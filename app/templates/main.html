@@ -127,7 +127,8 @@
                 {% if user.role.value in ['admin', 'super_admin'] %}
                 <a class="btn btn-outline-light btn-sm me-2 fw-bold" href="/admin">관리자 페이지</a>
                 {% endif %}
-                <span class="text-user me-3">{{ user.name }} ({{ user.dept }})</span>
+                <button type="button" class="btn btn-outline-light btn-sm me-2" id="deptSettingsBtn">🎓 학과 설정</button>
+                <span class="text-user me-3">{{ user.name }} ({{ user.dept or '미설정' }})</span>
                 <a href="/logout" class="btn btn-outline-light btn-sm">로그아웃</a>
             </div>
         </div>
@@ -202,6 +203,26 @@
                 </div>
                 <div class="modal-footer border-0" style="padding: 16px 24px;">
                     <button type="button" class="btn btn-danger w-100 fw-bold" id="notifConfirmBtn" style="border-radius: 12px; padding: 12px;">확인하였습니다</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 학과 설정 모달 -->
+    <div class="modal fade" id="deptModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">학과 설정</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">예약 현황에서 학과 정보로 표시됩니다. 맞는 학과를 선택해주세요.</p>
+                    <select class="form-select" id="deptModalSelect"><option>불러오는 중...</option></select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">나중에</button>
+                    <button type="button" class="btn btn-primary" id="deptModalSaveBtn">저장</button>
                 </div>
             </div>
         </div>
@@ -593,6 +614,34 @@
                 myModal.show();
             }
 
+            async function openDeptModal() {
+                const sel = document.getElementById('deptModalSelect');
+                sel.innerHTML = '<option>불러오는 중...</option>';
+                const data = await api('/api/me/departments');
+                if (data && data.departments && data.departments.length) {
+                    sel.innerHTML = data.departments.map(d => `<option value="${d}">${d}</option>`).join('');
+                } else {
+                    sel.innerHTML = '<option value="">선택 가능한 학과가 없습니다</option>';
+                }
+                new bootstrap.Modal(document.getElementById('deptModal')).show();
+            }
+
+            document.getElementById('deptSettingsBtn').addEventListener('click', openDeptModal);
+
+            document.getElementById('deptModalSaveBtn').addEventListener('click', async () => {
+                const dept = document.getElementById('deptModalSelect').value;
+                if (!dept) return;
+                const res = await api('/api/me/dept', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dept })
+                });
+                if (res) {
+                    bootstrap.Modal.getInstance(document.getElementById('deptModal')).hide();
+                    location.reload();
+                }
+            });
+
             document.addEventListener('DOMContentLoaded', async () => {
                 const confirmModal = document.getElementById('confirmModal');
                 if (confirmModal) {
@@ -616,6 +665,9 @@
                 await loadMyReservations();
                 await loadNotices();
                 await checkNotifications();
+                {% if not user.dept %}
+                openDeptModal();
+                {% endif %}
             });
         })();
     </script>

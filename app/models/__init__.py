@@ -3,6 +3,7 @@ from app.models.room import Room
 from app.models.reservation import Reservation, ReservationStatus
 from app.models.system_config import SystemConfig
 from app.models.notice import Notice
+from app.models.department import Department, DepartmentLevel, UNDERGRAD_DEPARTMENTS
 
 __all__ = [
     "User",
@@ -13,5 +14,7 @@ __all__ = [
     "ReservationStatus",
     "SystemConfig",
     "Notice",
+    "Department",
+    "DepartmentLevel",
+    "UNDERGRAD_DEPARTMENTS",
 ]
-

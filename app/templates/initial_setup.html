@@ -148,25 +148,20 @@
                     <label class="form-label small fw-bold text-muted mb-2">대학원 전공 선택</label>
                     <select class="form-select" name="dept" id="deptSelect">
                         <option value="" disabled selected>전공을 선택해주세요</option>
-                        <!-- 일반대학원 -->
-                        <option value="교육공학과">교육공학과</option>
-                        <option value="러닝사이언스학과">러닝사이언스학과</option>
-                        <option value="응용미술학과">응용미술학과</option>
-                        <option value="한국어교육학과">한국어교육학과</option>
-                        <option value="박물관교육학과">박물관교육학과</option>
-                        <option value="다문화교육학과">다문화교육학과</option>
-                        <option value="평생학습학과">평생학습학과</option>
-                        <!-- 교육대학원 -->
-                        <option value="상담심리">상담심리</option>
-                        <option value="유아교육">유아교육</option>
-                        <option value="교육공학">교육공학</option>
-                        <option value="국어교육">국어교육</option>
-                        <option value="영어교육">영어교육</option>
-                        <option value="수학교육">수학교육</option>
-                        <option value="일반사회교육">일반사회교육</option>
-                        <option value="음악교육">음악교육</option>
-                        <option value="미술교육">미술교육</option>
-                        <option value="체육교육">체육교육</option>
+                        {% if grad_general_depts %}
+                        <optgroup label="일반대학원">
+                            {% for d in grad_general_depts %}
+                            <option value="{{ d.name }}">{{ d.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endif %}
+                        {% if grad_education_depts %}
+                        <optgroup label="교육대학원">
+                            {% for d in grad_education_depts %}
+                            <option value="{{ d.name }}">{{ d.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endif %}
                     </select>
                 </div>
 

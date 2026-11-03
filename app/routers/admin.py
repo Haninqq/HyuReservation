@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_admin, get_current_super_admin
-from app.models import Reservation, ReservationStatus, Room, SystemConfig, User, UserRole, Notice
+from app.models import Reservation, ReservationStatus, Room, SystemConfig, User, UserRole, Notice, Department, DepartmentLevel, UNDERGRAD_DEPARTMENTS
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -60,6 +60,26 @@ class UserRoleUpdate(BaseModel):
 
 class GraduateUpdate(BaseModel):
     is_graduate: bool
+
+
+class DeptUpdate(BaseModel):
+    dept: str
+
+
+class DepartmentCreate(BaseModel):
+    name: str
+    level: str
+
+
+class DepartmentAdminOut(BaseModel):
+    id: int
+    name: str
+    level: str
+    sort_order: int
+    is_active: bool
+
+    class Config:
+        from_attributes = True
 
 
 class NoticeCreate(BaseModel):
@@ -256,6 +276,23 @@ async def update_user_graduate(
     return {"ok": True, "is_graduate": body.is_graduate}
 
 
+@router.patch("/users/{user_id}/dept")
+async def update_user_dept(
+    user_id: int,
+    body: DeptUpdate,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """학과가 비어있거나 잘못 들어간 사용자를 관리자가 직접 고쳐줄 수 있는 엔드포인트."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.dept = body.dept
+    await db.commit()
+    return {"ok": True, "dept": body.dept}
+
+
 @router.patch("/users/{user_id}/role")
 async def update_user_role(
     user_id: int,
@@ -352,3 +389,73 @@ async def delete_notice(
     # Soft delete by setting is_active = False
     n.is_active = False
     await db.commit()
+
+
+# --- Department Management Routes ---
+@router.get("/departments", response_model=list[DepartmentAdminOut])
+async def list_admin_departments(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Department).order_by(Department.level, Department.sort_order))
+    return [
+        DepartmentAdminOut(
+            id=d.id, name=d.name, level=d.level.value, sort_order=d.sort_order, is_active=d.is_active,
+        )
+        for d in result.scalars().all()
+    ]
+
+
+@router.post("/departments", response_model=DepartmentAdminOut)
+async def create_department(
+    body: DepartmentCreate,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    try:
+        level = DepartmentLevel(body.level)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid level")
+    max_order_result = await db.execute(
+        select(func.max(Department.sort_order)).where(Department.level == level)
+    )
+    next_order = (max_order_result.scalar() or 0) + 1
+    d = Department(name=body.name, level=level, sort_order=next_order, is_active=True)
+    db.add(d)
+    await db.commit()
+    await db.refresh(d)
+    return DepartmentAdminOut(id=d.id, name=d.name, level=d.level.value, sort_order=d.sort_order, is_active=d.is_active)
+
+
+@router.delete("/departments/{department_id}", status_code=204)
+async def delete_department(
+    department_id: int,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(Department).where(Department.id == department_id))
+    d = result.scalar_one_or_none()
+    if not d:
+        raise HTTPException(status_code=404, detail="학과를 찾을 수 없습니다.")
+    # Soft delete by setting is_active = False (이미 가입한 학생 데이터는 영향 없음)
+    d.is_active = False
+    await db.commit()
+
+
+@router.get("/user-dept-options")
+async def get_user_dept_options(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """사용자 관리 탭에서 학과를 고쳐줄 때 보여줄 전체 학과 옵션 (학부 고정목록 + 대학원 DB목록)."""
+    result = await db.execute(
+        select(Department).where(Department.is_active == True).order_by(Department.level, Department.sort_order)
+    )
+    all_depts = result.scalars().all()
+    grad_general = [d.name for d in all_depts if d.level == DepartmentLevel.grad_general]
+    grad_education = [d.name for d in all_depts if d.level == DepartmentLevel.grad_education]
+    return {
+        "undergraduate": UNDERGRAD_DEPARTMENTS,
+        "grad_general": grad_general,
+        "grad_education": grad_education,
+    }
