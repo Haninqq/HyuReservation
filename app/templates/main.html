@@ -40,6 +40,15 @@
         .navbar-main .navbar-brand { color: #fff !important; font-weight: 700; }
         .navbar-main .text-user { color: rgba(255,255,255,0.9); font-size: 0.9rem; }
         .navbar-main .btn-outline-light:hover { background: rgba(255,255,255,0.2); color: #fff; }
+        .navbar-main .navbar-toggler { border-color: rgba(255,255,255,0.5); }
+        .navbar-main .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255,255,255,0.9)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+        @media (max-width: 991.98px) {
+            .navbar-main .navbar-collapse { margin-top: 0.75rem; }
+            .navbar-main .navbar-collapse .d-flex { flex-wrap: wrap; row-gap: 0.5rem; }
+            .navbar-main .text-user { order: 10; width: 100%; }
+        }
 
         main { padding-top: 2rem; padding-bottom: 3rem; }
         .section-title { font-weight: 600; color: var(--hy-gray); margin-bottom: 1.25rem; }
@@ -123,13 +132,18 @@
     <nav class="navbar navbar-expand-lg navbar-main">
         <div class="container">
             <a class="navbar-brand" href="/main">스터디룸 예약</a>
-            <div class="d-flex align-items-center">
-                {% if user.role.value in ['admin', 'super_admin'] %}
-                <a class="btn btn-outline-light btn-sm me-2 fw-bold" href="/admin">관리자 페이지</a>
-                {% endif %}
-                <button type="button" class="btn btn-outline-light btn-sm me-2" id="deptSettingsBtn">🎓 학과 설정</button>
-                <span class="text-user me-3">{{ user.name }} ({{ user.dept or '미설정' }})</span>
-                <a href="/logout" class="btn btn-outline-light btn-sm">로그아웃</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMainContent" aria-controls="navbarMainContent" aria-expanded="false" aria-label="메뉴 열기">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarMainContent">
+                <div class="d-flex align-items-center ms-lg-auto">
+                    {% if user.role.value in ['admin', 'super_admin'] %}
+                    <a class="btn btn-outline-light btn-sm me-2 fw-bold" href="/admin">관리자 페이지</a>
+                    {% endif %}
+                    <button type="button" class="btn btn-outline-light btn-sm me-2" id="deptSettingsBtn">🎓 학과 설정</button>
+                    <span class="text-user me-3">{{ user.name }} ({{ user.dept or '미설정' }})</span>
+                    <a href="/logout" class="btn btn-outline-light btn-sm">로그아웃</a>
+                </div>
             </div>
         </div>
     </nav>
