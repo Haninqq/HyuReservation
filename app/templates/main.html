@@ -140,7 +140,6 @@
                     {% if user.role.value in ['admin', 'super_admin'] %}
                     <a class="btn btn-outline-light btn-sm me-2 fw-bold" href="/admin">관리자 페이지</a>
                     {% endif %}
-                    <button type="button" class="btn btn-outline-light btn-sm me-2" id="deptSettingsBtn">🎓 학과 설정</button>
                     <span class="text-user me-3">{{ user.name }} ({{ user.dept or '미설정' }})</span>
                     <a href="/logout" class="btn btn-outline-light btn-sm">로그아웃</a>
                 </div>
@@ -639,8 +638,6 @@
                 }
                 new bootstrap.Modal(document.getElementById('deptModal')).show();
             }
-
-            document.getElementById('deptSettingsBtn').addEventListener('click', openDeptModal);
 
             document.getElementById('deptModalSaveBtn').addEventListener('click', async () => {
                 const dept = document.getElementById('deptModalSelect').value;
