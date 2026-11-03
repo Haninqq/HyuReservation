@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -118,6 +118,15 @@ async def complete_setup(
     if is_graduate:
         form_dept = form_data.get("dept")
         if form_dept:
+            # 드롭다운이 아니라 요청을 조작해서 임의 문자열을 보낼 수도 있으니, 실제 DB에 등록된 학과인지 검증한다.
+            valid_result = await db.execute(
+                select(Department.name).where(
+                    Department.is_active == True,
+                    Department.name == form_dept,
+                )
+            )
+            if valid_result.scalar_one_or_none() is None:
+                raise HTTPException(status_code=400, detail="유효하지 않은 학과입니다.")
             dept = form_dept
 
     role = UserRole.super_admin
